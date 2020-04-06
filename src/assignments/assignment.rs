@@ -1,5 +1,5 @@
 use crate::{assignments::Assignments, formula::Clause, sign::Sign, DecisionLevel, Variable};
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 
 pub type Antecedent<'a> = &'a RefCell<Clause>;
 
@@ -41,5 +41,13 @@ impl<'a> Assignment<'a> {
 
     pub fn sign(&self) -> Sign {
         self.sign
+    }
+
+    pub fn antecedent(&self) -> Option<Ref<Clause>> {
+        self.antecedent.map(|antecedent| antecedent.borrow())
+    }
+
+    pub fn decision_level(&self) -> DecisionLevel {
+        self.decision_level
     }
 }

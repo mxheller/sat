@@ -1,6 +1,6 @@
 use crate::{
     assignments::{Assignment, Assignments},
-    formula::Formula,
+    formula::{Clause, Formula},
     sign::Sign,
     DecisionLevel, Solution, Status, Variable,
 };
@@ -21,7 +21,7 @@ impl Solver<'_> {
     }
 
     pub fn solve(mut self) -> Solution {
-        if let Status::Conflict = self.perform_unit_propogation() {
+        if let Status::Conflict(_) = self.perform_unit_propogation() {
             return Solution::Unsat;
         }
 
@@ -30,8 +30,9 @@ impl Solver<'_> {
             self.decision_level += 1;
             self.assignments[var] = Some(Assignment::decided(sign, self.decision_level));
 
-            if let Status::Conflict = self.perform_unit_propogation() {
-                if let Some(level) = self.analyze_conflict() {
+            if let Status::Conflict(c) = self.perform_unit_propogation() {
+                if let Some((learned, level)) = self.analyze_conflict(c) {
+                    self.formula.add(learned);
                     self.backtrack(level);
                 } else {
                     return Solution::Unsat;
@@ -54,8 +55,26 @@ impl Solver<'_> {
         unimplemented!()
     }
 
-    fn analyze_conflict(&self) -> Option<DecisionLevel> {
-        unimplemented!()
+    fn analyze_conflict(&self, mut clause: Clause) -> Option<(Clause, DecisionLevel)> {
+        let (level, assignments) = (self.decision_level, &self.assignments);
+
+        if level == 0 {
+            return None;
+        }
+
+        while clause.literals_assigned_at(level, assignments).count() > 1 {
+            // TODO: this ^ conditional can probably be combined with the below
+            // section using equation 4.18
+
+            let antecedent = clause
+                .literals()
+                .find_map(|literal| literal.implied_in_at_level(&clause, level, assignments));
+            clause.resolve(&antecedent.unwrap());
+        }
+
+        // TODO: is this the correct level to backtrack to?
+        let backtrack_level = clause.asserting_level(assignments);
+        Some((clause, backtrack_level))
     }
 
     fn backtrack(&mut self, level: usize) {

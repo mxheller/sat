@@ -7,7 +7,7 @@ pub mod solver;
 pub type Variable = usize;
 pub enum Status {
     Ok,
-    Conflict,
+    Conflict(formula::Clause),
 }
 pub enum Solution {
     Sat,

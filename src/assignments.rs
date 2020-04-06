@@ -21,6 +21,11 @@ impl Assignments<'_> {
             lifetime: PhantomData,
         }
     }
+
+    pub fn implies(&self, a: Variable, b: Variable) -> bool {
+        let antecedent = self[b].as_ref().map(|assignment| assignment.antecedent());
+        true
+    }
 }
 
 impl<'a> Index<Variable> for Assignments<'a> {

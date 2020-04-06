@@ -12,4 +12,8 @@ impl Formula {
     pub fn perform_unit_propogation(&mut self, assignments: &mut Assignments) -> Status {
         unimplemented!()
     }
+
+    pub fn add(&mut self, clause: Clause) {
+        self.0.push(clause);
+    }
 }
