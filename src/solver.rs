@@ -1,14 +1,19 @@
 use crate::{
     assignments::{Assignment, Assignments},
-    formula::{Clause, Formula},
+    formula::{
+        clause::{Clause, ClauseUpdateResult},
+        Formula, Literal,
+    },
     sign::Sign,
-    DecisionLevel, Solution, Status, Variable,
+    watched::Watched,
+    ClauseIdx, DecisionLevel, Solution, Status, Variable,
 };
 
 pub struct Solver {
+    decision_level: usize,
     formula: Formula,
     assignments: Assignments,
-    decision_level: usize,
+    watched: Watched,
 }
 
 impl Solver {
@@ -17,8 +22,9 @@ impl Solver {
         let num_vars = formula.num_variables();
         Self {
             formula,
-            assignments: Assignments::new(num_vars),
             decision_level: 0,
+            assignments: Assignments::new(num_vars),
+            watched: Watched::new(num_vars),
         }
     }
 
@@ -28,10 +34,9 @@ impl Solver {
         }
 
         while !self.all_variables_assigned() {
-            let (var, sign) = self.pick_branching_variable();
+            let literal = self.pick_branching_variable();
             self.decision_level += 1;
-            self.assignments
-                .set(var, Assignment::decided(sign, self.decision_level));
+            self.assign_decided(literal);
 
             if let Status::Conflict(c) = self.perform_unit_propogation() {
                 if let Some((learned, level)) = self.analyze_conflict(c) {
@@ -46,6 +51,43 @@ impl Solver {
         Solution::Sat
     }
 
+    fn assign_decided(&mut self, literal: Literal) -> Status {
+        self.assignments.set(
+            literal.var(),
+            Assignment::decided(literal.sign(), self.decision_level),
+        );
+        self.propogate(literal)
+    }
+
+    fn assign_implied(&mut self, literal: Literal, antecedent: ClauseIdx) -> Status {
+        self.assignments.set(
+            literal.var(),
+            Assignment::implied(literal.sign(), antecedent, self.decision_level),
+        );
+        self.propogate(literal)
+    }
+
+    fn propogate(&mut self, literal: Literal) -> Status {
+        let mut implied = Vec::new();
+
+        // Find clauses in which negated literal (now unsatisfied) is watched
+        for clause in self.watched[!literal].iter() {
+            match self.formula.clauses[*clause].update(&self.assignments, self.decision_level) {
+                ClauseUpdateResult::Ok => (),
+                ClauseUpdateResult::Conflict(clause) => return Status::Conflict(clause),
+                ClauseUpdateResult::Implied(literal) => implied.push((literal, *clause)),
+            }
+        }
+
+        for (literal, antecedent) in implied.into_iter() {
+            if let c @ Status::Conflict(_) = self.assign_implied(literal, antecedent) {
+                return c;
+            }
+        }
+
+        Status::Ok
+    }
+
     fn perform_unit_propogation(&mut self) -> Status {
         unimplemented!()
     }
@@ -54,7 +96,7 @@ impl Solver {
         unimplemented!()
     }
 
-    fn pick_branching_variable(&self) -> (Variable, Sign) {
+    fn pick_branching_variable(&self) -> Literal {
         unimplemented!()
     }
 

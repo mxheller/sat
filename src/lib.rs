@@ -3,6 +3,7 @@ pub mod evaluate;
 pub mod formula;
 pub mod sign;
 pub mod solver;
+pub mod watched;
 
 pub type Variable = usize;
 pub type ClauseIdx = usize;

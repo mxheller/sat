@@ -1,19 +1,16 @@
 use crate::{DecisionLevel, Variable};
-use std::marker::PhantomData;
 
 pub mod assignment;
 pub use assignment::Assignment;
 
 pub struct Assignments {
     assignments: Vec<Option<Assignment>>,
-    lifetime: PhantomData<Assignment>,
 }
 
 impl Assignments {
     pub fn new(num_vars: Variable) -> Self {
         Self {
-            assignments: Vec::with_capacity(num_vars),
-            lifetime: PhantomData,
+            assignments: vec![None; num_vars as usize],
         }
     }
 

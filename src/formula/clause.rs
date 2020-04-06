@@ -1,14 +1,16 @@
 use crate::{
-    assignments::Assignments,
-    formula::Literal,
-    sign::Sign::{Negative, Positive},
-    DecisionLevel, Variable,
+    assignments::Assignments, evaluate::Evaluate, formula::Literal, DecisionLevel, Variable,
 };
-use std::collections::BTreeSet;
 
 #[derive(Clone)]
 pub struct Clause {
-    literals: BTreeSet<Literal>,
+    literals: Vec<Literal>,
+}
+
+pub enum ClauseUpdateResult {
+    Ok,
+    Conflict(Clause),
+    Implied(Literal),
 }
 
 impl Clause {
@@ -22,6 +24,7 @@ impl Clause {
     }
 
     pub fn contains(&self, literal: &Literal) -> bool {
+        unimplemented!();
         self.literals.contains(literal)
     }
 
@@ -33,18 +36,64 @@ impl Clause {
         unimplemented!()
     }
 
-    pub fn resolve(&mut self, other: &Clause) {
-        let mut found_overlap = false;
+    /// Restores the 2-Watched Literal invariant and
+    /// produces a new implied literal if one exists
+    pub fn update(
+        &mut self,
+        assignments: &Assignments,
+        level: DecisionLevel,
+    ) -> ClauseUpdateResult {
+        // Make sure no unit clauses are being watched
+        let num_lits = self.literals.len();
+        debug_assert!(num_lits > 1);
 
-        for literal in other.literals() {
-            debug_assert!(!(found_overlap && self.contains(&!*literal)));
-            if !found_overlap && self.contains(&!*literal) {
-                self.literals.remove(&!*literal);
-                found_overlap = true;
-            } else {
-                self.literals.insert(*literal);
-            }
+        // Determines the value of a literal in the current assignment
+        let value = |idx: usize| self.literals[idx].evaluate(level, assignments);
+
+        // Indices of literals that do not evaluate to false
+        let mut not_false = (0..num_lits).filter(|idx| !matches!(value(*idx), Some(false)));
+
+        match (value(0), value(1)) {
+            // Both watched literals are still unassigned or one is satisfied
+            (None, None) | (Some(true), _) | (_, Some(true)) => ClauseUpdateResult::Ok,
+
+            // At least one of the watched literals is false
+            _ => match (not_false.next(), not_false.next()) {
+                // There are no non-false literals--conflict
+                (None, None) => ClauseUpdateResult::Conflict(self.clone()),
+
+                // There is only one non-false literal, so it must be true
+                (Some(a), None) => {
+                    self.literals.swap(0, a);
+                    ClauseUpdateResult::Implied(self.literals[0])
+                }
+
+                // There are multiple non-false literals--watch them
+                (Some(a), Some(b)) => {
+                    self.literals.swap(0, a);
+                    self.literals.swap(1, b);
+                    ClauseUpdateResult::Ok
+                }
+
+                // Iterators don't work like this
+                (None, Some(_)) => unreachable!(),
+            },
         }
+    }
+
+    pub fn resolve(&mut self, other: &Clause) {
+        unimplemented!();
+        // let mut found_overlap = false;
+
+        // for literal in other.literals() {
+        //     debug_assert!(!(found_overlap && self.contains(&!*literal)));
+        //     if !found_overlap && self.contains(&!*literal) {
+        //         self.literals.remove(&!*literal);
+        //         found_overlap = true;
+        //     } else {
+        // self.literals.insert(*literal);
+        // }
+        // }
     }
 
     pub fn literals_assigned_at<'a>(
