@@ -1,5 +1,6 @@
-use crate::{assignments::Assignments, formula::Clause, sign::Sign, DecisionLevel, Variable};
-use std::cell::Ref;
+use crate::{
+    assignments::Assignments, formula::Clause, sign::Sign, ClauseIdx, DecisionLevel, Variable,
+};
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Literal {}
@@ -17,12 +18,12 @@ impl Literal {
         unimplemented!();
     }
 
-    pub fn implied_in_at_level<'a, 'b>(
-        &'a self,
-        clause: impl std::ops::Deref<Target = Clause>,
+    pub fn implied_in_at_level(
+        &self,
+        clause: &Clause,
         level: DecisionLevel,
-        assignments: &'b Assignments,
-    ) -> Option<Ref<'b, Clause>> {
+        assignments: &Assignments,
+    ) -> Option<ClauseIdx> {
         assignments
             .get(self.var(), level)
             .and_then(|ref assignment| {

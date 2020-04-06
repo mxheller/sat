@@ -5,13 +5,13 @@ use crate::{
     DecisionLevel, Solution, Status, Variable,
 };
 
-pub struct Solver<'a> {
+pub struct Solver {
     formula: Formula,
-    assignments: Assignments<'a>,
+    assignments: Assignments,
     decision_level: usize,
 }
 
-impl Solver<'_> {
+impl Solver {
     pub fn new(formula: impl Into<Formula>) -> Self {
         let formula = formula.into();
         let num_vars = formula.num_variables();
@@ -35,7 +35,7 @@ impl Solver<'_> {
 
             if let Status::Conflict(c) = self.perform_unit_propogation() {
                 if let Some((learned, level)) = self.analyze_conflict(c) {
-                    self.formula.add(learned);
+                    self.formula.clauses.push(learned);
                     self.backtrack(level);
                 } else {
                     return Solution::Unsat;
@@ -72,7 +72,7 @@ impl Solver<'_> {
             let antecedent = clause
                 .literals()
                 .find_map(|literal| literal.implied_in_at_level(&clause, level, assignments));
-            clause.resolve(&antecedent.unwrap());
+            clause.resolve(&self.formula.clauses[antecedent.unwrap()]);
         }
 
         // TODO: is this the correct level to backtrack to?

@@ -5,6 +5,8 @@ pub mod sign;
 pub mod solver;
 
 pub type Variable = usize;
+pub type ClauseIdx = usize;
+
 pub enum Status {
     Ok,
     Conflict(formula::Clause),
