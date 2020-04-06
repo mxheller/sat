@@ -1,4 +1,4 @@
-use crate::{assignments::Assignments, formula::Clause, sign::Sign, DecisionLevel, Variable};
+use crate::{formula::Clause, sign::Sign, DecisionLevel};
 use std::cell::{Ref, RefCell};
 
 pub type Antecedent<'a> = &'a RefCell<Clause>;
@@ -18,20 +18,7 @@ impl<'a> Assignment<'a> {
         }
     }
 
-    pub fn implied(
-        var: Variable,
-        sign: Sign,
-        antecedent: Antecedent<'a>,
-        assignments: &Assignments,
-    ) -> Self {
-        let decision_level = antecedent
-            .borrow()
-            .variables()
-            .filter_map(|var| assignments[var].as_ref())
-            .map(|assignment| assignment.decision_level)
-            .max()
-            .unwrap_or(0);
-
+    pub fn implied(sign: Sign, antecedent: Antecedent<'a>, decision_level: DecisionLevel) -> Self {
         Self {
             sign,
             antecedent: Some(antecedent),

@@ -7,7 +7,9 @@ use crate::{
 use std::collections::BTreeSet;
 
 #[derive(Clone)]
-pub struct Clause(BTreeSet<Literal>);
+pub struct Clause {
+    literals: BTreeSet<Literal>,
+}
 
 impl Clause {
     pub fn literals(&self) -> impl Iterator<Item = &Literal> {
@@ -20,7 +22,7 @@ impl Clause {
     }
 
     pub fn contains(&self, literal: &Literal) -> bool {
-        self.0.contains(literal)
+        self.literals.contains(literal)
     }
 
     pub fn contains_pos(&self, var: Variable) -> bool {
@@ -37,10 +39,10 @@ impl Clause {
         for literal in other.literals() {
             debug_assert!(!(found_overlap && self.contains(&!*literal)));
             if !found_overlap && self.contains(&!*literal) {
-                self.0.remove(&!*literal);
+                self.literals.remove(&!*literal);
                 found_overlap = true;
             } else {
-                self.0.insert(*literal);
+                self.literals.insert(*literal);
             }
         }
     }
@@ -51,17 +53,25 @@ impl Clause {
         assignments: &'a Assignments,
     ) -> impl Iterator<Item = &Literal> + 'a {
         self.literals().filter(move |literal| {
-            assignments[literal.var()]
+            assignments
+                .get(literal.var(), level)
                 .as_ref()
                 .map(|assignment| assignment.decision_level() == level)
                 .unwrap_or(false)
         })
     }
 
-    pub fn asserting_level(&self, assignments: &Assignments) -> DecisionLevel {
-        let mut levels = self
-            .variables()
-            .map(|var| assignments[var].as_ref().unwrap().decision_level());
+    pub fn asserting_level(
+        &self,
+        assignments: &Assignments,
+        current_level: DecisionLevel,
+    ) -> DecisionLevel {
+        let mut levels = self.variables().map(|var| {
+            assignments
+                .get(var, current_level)
+                .unwrap()
+                .decision_level()
+        });
         match (levels.next(), levels.next()) {
             (Some(first), Some(second)) => {
                 let (mut highest, mut second_highest) =

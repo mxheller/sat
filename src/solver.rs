@@ -12,10 +12,12 @@ pub struct Solver<'a> {
 }
 
 impl Solver<'_> {
-    pub fn new(formula: Formula) -> Self {
+    pub fn new(formula: impl Into<Formula>) -> Self {
+        let formula = formula.into();
+        let num_vars = formula.num_variables();
         Self {
             formula,
-            assignments: Assignments::new(),
+            assignments: Assignments::new(num_vars),
             decision_level: 0,
         }
     }
@@ -28,7 +30,8 @@ impl Solver<'_> {
         while !self.all_variables_assigned() {
             let (var, sign) = self.pick_branching_variable();
             self.decision_level += 1;
-            self.assignments[var] = Some(Assignment::decided(sign, self.decision_level));
+            self.assignments
+                .set(var, Assignment::decided(sign, self.decision_level));
 
             if let Status::Conflict(c) = self.perform_unit_propogation() {
                 if let Some((learned, level)) = self.analyze_conflict(c) {
@@ -40,7 +43,7 @@ impl Solver<'_> {
             }
         }
 
-        return Solution::Sat;
+        Solution::Sat
     }
 
     fn perform_unit_propogation(&mut self) -> Status {
@@ -73,7 +76,7 @@ impl Solver<'_> {
         }
 
         // TODO: is this the correct level to backtrack to?
-        let backtrack_level = clause.asserting_level(assignments);
+        let backtrack_level = clause.asserting_level(assignments, self.decision_level);
         Some((clause, backtrack_level))
     }
 

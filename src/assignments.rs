@@ -1,45 +1,40 @@
-use crate::{
-    formula::{Clause, Formula, Literal},
-    sign::Sign,
-    Variable,
-};
-use std::{
-    marker::PhantomData,
-    ops::{Index, IndexMut},
-};
+use crate::{DecisionLevel, Variable};
+use std::marker::PhantomData;
 
 pub mod assignment;
 pub use assignment::Assignment;
 
 pub struct Assignments<'a> {
+    assignments: Vec<Option<Assignment<'a>>>,
     lifetime: PhantomData<Assignment<'a>>,
 }
 
-impl Assignments<'_> {
-    pub fn new() -> Self {
+impl<'a> Assignments<'a> {
+    pub fn new(num_vars: Variable) -> Self {
         Self {
+            assignments: Vec::with_capacity(num_vars),
             lifetime: PhantomData,
         }
     }
 
     pub fn implies(&self, a: Variable, b: Variable) -> bool {
-        let antecedent = self[b].as_ref().map(|assignment| assignment.antecedent());
-        true
+        unimplemented!();
     }
-}
 
-impl<'a> Index<Variable> for Assignments<'a> {
-    type Output = Option<Assignment<'a>>;
-
-    #[inline]
-    fn index(&self, var: Variable) -> &Self::Output {
-        unimplemented!()
+    /// Get the assignment of a variable as of a given decision level
+    pub fn get(&self, var: Variable, current_level: DecisionLevel) -> Option<&Assignment<'a>> {
+        self.assignments[var].as_ref().and_then(|assignment| {
+            // Don't return assignment if it was made after current decision level
+            if assignment.decision_level() > current_level {
+                None
+            } else {
+                Some(assignment)
+            }
+        })
     }
-}
 
-impl<'a> IndexMut<Variable> for Assignments<'a> {
-    #[inline]
-    fn index_mut(&mut self, var: Variable) -> &mut Self::Output {
-        unimplemented!()
+    pub fn set(&mut self, var: Variable, assignment: Assignment<'a>) {
+        debug_assert!(matches!(self.get(var, assignment.decision_level()), None));
+        self.assignments[var] = Some(assignment);
     }
 }

@@ -9,10 +9,7 @@ pub trait Evaluate {
 
 impl Evaluate for Literal {
     fn evaluate(&self, assignments: &Assignments) -> Option<bool> {
-        // A literal is true if its sign agrees with its variable's assignment
-        assignments[self.var()]
-            .as_ref()
-            .map(|assignment| assignment.sign() == self.sign())
+        unimplemented!();
     }
 }
 

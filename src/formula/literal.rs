@@ -5,6 +5,10 @@ use std::cell::Ref;
 pub struct Literal {}
 
 impl Literal {
+    pub fn new(var: Variable, sign: Sign) -> Self {
+        unimplemented!()
+    }
+
     pub fn var(&self) -> Variable {
         unimplemented!();
     }
@@ -19,13 +23,15 @@ impl Literal {
         level: DecisionLevel,
         assignments: &'b Assignments,
     ) -> Option<Ref<'b, Clause>> {
-        assignments[self.var()].as_ref().and_then(|ref assignment| {
-            if assignment.decision_level() == level && clause.contains(self) {
-                assignment.antecedent()
-            } else {
-                None
-            }
-        })
+        assignments
+            .get(self.var(), level)
+            .and_then(|ref assignment| {
+                if assignment.decision_level() == level && clause.contains(self) {
+                    assignment.antecedent()
+                } else {
+                    None
+                }
+            })
     }
 }
 

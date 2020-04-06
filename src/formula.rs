@@ -1,4 +1,4 @@
-use crate::{assignments::Assignments, Status};
+use crate::{assignments::Assignments, Status, Variable};
 
 pub mod clause;
 pub mod literal;
@@ -15,5 +15,9 @@ impl Formula {
 
     pub fn add(&mut self, clause: Clause) {
         self.0.push(clause);
+    }
+
+    pub fn num_variables(&self) -> Variable {
+        unimplemented!()
     }
 }
