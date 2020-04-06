@@ -71,11 +71,20 @@ impl Solver {
         let mut implied = Vec::new();
 
         // Find clauses in which negated literal (now unsatisfied) is watched
-        for clause in self.watched[!literal].iter() {
-            match self.formula.clauses[*clause].update(&self.assignments, self.decision_level) {
+        let affected_clauses = self.watched[!literal]
+            .iter()
+            .copied()
+            .collect::<Vec<usize>>();
+        for clause in affected_clauses {
+            match self.formula.clauses[clause].update(
+                &mut self.watched,
+                &self.assignments,
+                self.decision_level,
+                clause,
+            ) {
                 ClauseUpdateResult::Ok => (),
                 ClauseUpdateResult::Conflict(clause) => return Status::Conflict(clause),
-                ClauseUpdateResult::Implied(literal) => implied.push((literal, *clause)),
+                ClauseUpdateResult::Implied(literal) => implied.push((literal, clause)),
             }
         }
 

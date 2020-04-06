@@ -1,5 +1,6 @@
 use crate::{
-    assignments::Assignments, evaluate::Evaluate, formula::Literal, DecisionLevel, Variable,
+    assignments::Assignments, evaluate::Evaluate, formula::Literal, watched::Watched, ClauseIdx,
+    DecisionLevel, Variable,
 };
 
 #[derive(Clone)]
@@ -40,8 +41,10 @@ impl Clause {
     /// produces a new implied literal if one exists
     pub fn update(
         &mut self,
+        watched: &mut Watched,
         assignments: &Assignments,
         level: DecisionLevel,
+        clause_idx: ClauseIdx,
     ) -> ClauseUpdateResult {
         // Make sure no unit clauses are being watched
         let num_lits = self.literals.len();
@@ -49,6 +52,14 @@ impl Clause {
 
         // Determines the value of a literal in the current assignment
         let value = |idx: usize| self.literals[idx].evaluate(level, assignments);
+
+        let mut watch = |literals: &mut Vec<Literal>, idx, slot| {
+            if idx != slot {
+                watched[literals[slot]].remove(&clause_idx);
+                watched[literals[idx]].insert(clause_idx);
+                literals.swap(idx, slot);
+            }
+        };
 
         // Indices of literals that do not evaluate to false
         let mut not_false = (0..num_lits).filter(|idx| !matches!(value(*idx), Some(false)));
@@ -64,14 +75,14 @@ impl Clause {
 
                 // There is only one non-false literal, so it must be true
                 (Some(a), None) => {
-                    self.literals.swap(0, a);
+                    watch(&mut self.literals, a, 0);
                     ClauseUpdateResult::Implied(self.literals[0])
                 }
 
                 // There are multiple non-false literals--watch them
                 (Some(a), Some(b)) => {
-                    self.literals.swap(0, a);
-                    self.literals.swap(1, b);
+                    watch(&mut self.literals, a, 0);
+                    watch(&mut self.literals, b, 1);
                     ClauseUpdateResult::Ok
                 }
 
