@@ -36,7 +36,7 @@ impl Solver {
         while !self.all_variables_assigned() {
             let literal = self.pick_branching_variable();
             self.decision_level += 1;
-            self.assign_decided(literal);
+            self.assign_and_propogate_decided(literal);
 
             if let Status::Conflict(c) = self.perform_unit_propogation() {
                 if let Some((learned, level)) = self.analyze_conflict(c) {
@@ -51,7 +51,7 @@ impl Solver {
         Solution::Sat
     }
 
-    fn assign_decided(&mut self, literal: Literal) -> Status {
+    fn assign_and_propogate_decided(&mut self, literal: Literal) -> Status {
         self.assignments.set(
             literal.var(),
             Assignment::decided(literal.sign(), self.decision_level),
@@ -59,12 +59,11 @@ impl Solver {
         self.propogate(literal)
     }
 
-    fn assign_implied(&mut self, literal: Literal, antecedent: ClauseIdx) -> Status {
+    fn assign_implied(&mut self, literal: Literal, antecedent: ClauseIdx) {
         self.assignments.set(
             literal.var(),
             Assignment::implied(literal.sign(), antecedent, self.decision_level),
         );
-        self.propogate(literal)
     }
 
     fn propogate(&mut self, literal: Literal) -> Status {
@@ -75,6 +74,7 @@ impl Solver {
             .iter()
             .copied()
             .collect::<Vec<usize>>();
+
         for clause in affected_clauses {
             match self.formula.clauses[clause].update(
                 &mut self.watched,
@@ -84,12 +84,15 @@ impl Solver {
             ) {
                 ClauseUpdateResult::Ok => (),
                 ClauseUpdateResult::Conflict(clause) => return Status::Conflict(clause),
-                ClauseUpdateResult::Implied(literal) => implied.push((literal, clause)),
+                ClauseUpdateResult::Implied(literal) => {
+                    self.assign_implied(literal, clause);
+                    implied.push(literal);
+                }
             }
         }
 
-        for (literal, antecedent) in implied.into_iter() {
-            if let c @ Status::Conflict(_) = self.assign_implied(literal, antecedent) {
+        for literal in implied.into_iter() {
+            if let c @ Status::Conflict(_) = self.propogate(literal) {
                 return c;
             }
         }
