@@ -160,6 +160,7 @@ impl Solver {
         let (level, assignments) = (self.decision_level, &self.assignments);
 
         if level == 0 {
+            // Cannot backtrack any farther
             return None;
         }
 
@@ -179,7 +180,6 @@ impl Solver {
             clause.resolve(&self.formula[antecedent.unwrap()]);
         }
 
-        // TODO: is this the correct level to backtrack to?
         clause
             .satisfiable_level(assignments)
             .map(|level| (clause, level))

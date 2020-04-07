@@ -67,8 +67,6 @@ impl Clause {
 
     /// Returns a decision level from which the clause can still be satisfied
     pub fn satisfiable_level(&self, assignments: &Assignments) -> Option<DecisionLevel> {
-        // FIXME:
-
         // Make sure all literals are actually unsatisfied
         debug_assert!(self
             .literals()
@@ -79,24 +77,43 @@ impl Clause {
             .variables()
             .map(|var| assignments.get(var).unwrap().decision_level());
 
-        // It is impossible to fix an unsatisfied clause if it is unit or empty
-        if levels.len() < 2 {
-            return None;
-        }
+        match levels.len() {
+            0 => {
+                // An empty clause can never be satisfied
+                dbg!("Trying to find satisfiable level of an empty clause");
+                None
+            }
+            1 => {
+                dbg!("Trying to find satisfiable level of a unit clause");
+                // Return to the level before the variable was set incorrectly
+                let level = levels.next().unwrap();
+                assert_ne!(level, 0, "Conflict should've been detected elsewhere");
+                Some(level - 1)
+            }
+            _ => {
+                // FIXME: what is the right level to return to
+                let (first, second) = (levels.next().unwrap(), levels.next().unwrap());
+                let (mut highest, mut second_highest) =
+                    (std::cmp::max(first, second), std::cmp::min(first, second));
 
-        let (first, second) = (levels.next().unwrap(), levels.next().unwrap());
-        let (mut highest, mut second_highest) =
-            (std::cmp::max(first, second), std::cmp::min(first, second));
+                for level in levels {
+                    if level > highest {
+                        second_highest = highest;
+                        highest = level;
+                    } else if level > second_highest {
+                        second_highest = level
+                    }
+                }
 
-        for level in levels {
-            if level > highest {
-                second_highest = highest;
-                highest = level;
-            } else if level > second_highest {
-                second_highest = level
+                if highest == second_highest {
+                    debug_assert_ne!(highest, 0, "Conflict should've been detected earlier");
+                    Some(highest - 1)
+                } else {
+                    debug_assert!(highest > second_highest);
+                    Some(second_highest)
+                }
             }
         }
-        Some(second_highest)
     }
 
     pub fn len(&self) -> usize {
