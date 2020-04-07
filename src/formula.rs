@@ -28,11 +28,13 @@ impl Formula {
         }
     }
 
-    pub fn add_clause(&mut self, literals: Literals) {
+    pub fn add_clause(&mut self, literals: impl IntoIterator<Item = Literal>) {
+        // TODO: make cleaner
+        let literals = literals.into_iter().collect::<Vec<_>>();
         match literals.len() {
             0 => self.contains_empty_clause = true,
-            1 => self.unit_clauses.push(*literals.literals().next().unwrap()),
-            _ => self.remaining_clauses.push(Clause::new(literals.literals)),
+            1 => self.unit_clauses.push(literals[0]),
+            _ => self.remaining_clauses.push(Clause::new(literals)),
         }
     }
 

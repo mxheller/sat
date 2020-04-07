@@ -2,6 +2,7 @@ use crate::{
     assignments::Assignments, evaluate::Evaluate, formula::Literal, watched::Watched, ClauseIdx,
     DecisionLevel, Variable,
 };
+use std::collections::BTreeSet;
 
 #[derive(Clone)]
 pub enum Clause {
@@ -44,7 +45,7 @@ impl Clause {
                 (Some(true), _) | (_, Some(true)) => ClauseUpdateResult::Ok,
                 (None, Some(false)) => ClauseUpdateResult::Implied(*a),
                 (Some(false), None) => ClauseUpdateResult::Implied(*b),
-                (Some(false), Some(false)) => ClauseUpdateResult::Conflict(self.literals()),
+                (Some(false), Some(false)) => ClauseUpdateResult::Conflict(self.get_literals()),
                 (None, None) => panic!("Neither watched literal was affected"),
             },
             Self::Many { ref mut literals } => {
@@ -70,7 +71,7 @@ impl Clause {
                     // At least one of the watched literals is false
                     _ => match (not_false.next(), not_false.next()) {
                         // There are no non-false literals--conflict
-                        (None, None) => ClauseUpdateResult::Conflict(self.literals()),
+                        (None, None) => ClauseUpdateResult::Conflict(self.get_literals()),
 
                         // There is only one non-false literal, so it must be true
                         (Some(a), None) => {
@@ -93,18 +94,18 @@ impl Clause {
         }
     }
 
-    pub fn literals(&self) -> Literals {
+    pub fn get_literals(&self) -> Literals {
         Literals {
             literals: match self {
-                Self::Binary { a, b } => vec![*a, *b],
-                Self::Many { literals } => literals.clone(),
+                Self::Binary { a, b } => [*a, *b].iter().copied().collect(),
+                Self::Many { literals } => literals.iter().copied().collect(),
             },
         }
     }
 }
 
 pub struct Literals {
-    pub literals: Vec<Literal>,
+    literals: BTreeSet<Literal>,
 }
 
 impl Literals {
@@ -112,36 +113,46 @@ impl Literals {
         self.literals.iter()
     }
 
+    pub fn into_literals(self) -> impl Iterator<Item = Literal> {
+        self.literals.into_iter()
+    }
+
     pub fn variables<'a>(&'a self) -> impl Iterator<Item = Variable> + 'a {
         self.literals().map(Literal::var)
     }
 
-    pub fn contains(&self, literal: &Literal) -> bool {
-        unimplemented!();
-        self.literals.contains(literal)
-    }
-
-    pub fn contains_pos(&self, var: Variable) -> bool {
-        unimplemented!()
-    }
-
-    pub fn contains_neg(&self, var: Variable) -> bool {
-        unimplemented!()
+    pub fn contains(&self, literal: Literal) -> bool {
+        self.literals.contains(&literal)
     }
 
     pub fn resolve(&mut self, other: &Clause) {
-        unimplemented!();
-        // let mut found_overlap = false;
+        match other {
+            Clause::Binary { a, b } => {
+                let (a, b) = (*a, *b);
+                if self.contains(!a) {
+                    self.literals.remove(&!a);
+                    debug_assert!(!self.contains(!b));
+                    self.literals.insert(b);
+                } else {
+                    debug_assert!(self.contains(!b));
+                    self.literals.remove(&!b);
+                    self.literals.insert(a);
+                }
+            }
+            Clause::Many { literals } => {
+                let mut found_overlap = false;
 
-        // for literal in other.literals() {
-        //     debug_assert!(!(found_overlap && self.contains(&!*literal)));
-        //     if !found_overlap && self.contains(&!*literal) {
-        //         self.literals.remove(&!*literal);
-        //         found_overlap = true;
-        //     } else {
-        // self.literals.insert(*literal);
-        // }
-        // }
+                for literal in literals.iter().copied() {
+                    debug_assert!(!found_overlap || !self.contains(!literal));
+                    if !found_overlap && self.contains(!literal) {
+                        self.literals.remove(&!literal);
+                        found_overlap = true;
+                    } else {
+                        self.literals.insert(literal);
+                    }
+                }
+            }
+        }
     }
 
     pub fn literals_assigned_at<'a>(

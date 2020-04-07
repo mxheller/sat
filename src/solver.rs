@@ -125,7 +125,7 @@ impl Solver {
             self.assign_invariant(unit);
             self.propogate(unit);
         } else {
-            self.formula.add_clause(literals);
+            self.formula.add_clause(literals.into_literals());
         }
     }
 
