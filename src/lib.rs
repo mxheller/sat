@@ -11,7 +11,7 @@ pub type ClauseIdx = usize;
 
 pub enum Status {
     Ok,
-    Conflict(formula::Clause),
+    Conflict(formula::Literals),
 }
 pub enum Solution {
     Sat,

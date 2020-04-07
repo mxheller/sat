@@ -9,8 +9,8 @@ pub trait Evaluate {
 
 impl Evaluate for Literal {
     fn evaluate(&self, assignments: &Assignments) -> Option<bool> {
-        assignments[self.var()]
-            .as_ref()
+        assignments
+            .get(self.var())
             .map(|assignment| assignment.sign() == self.sign())
     }
 }

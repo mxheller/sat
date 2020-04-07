@@ -1,4 +1,4 @@
-use crate::{history::History, Variable};
+use crate::{history::History, sign::Sign, Variable};
 use std::ops::Index;
 
 pub mod assignment;
@@ -20,22 +20,22 @@ impl Assignments {
         unimplemented!();
     }
 
+    pub fn get(&self, var: Variable) -> Option<&Assignment> {
+        self.assignments[var as usize].as_ref()
+    }
+
     pub fn set(&mut self, var: Variable, assignment: Assignment, history: &mut History) {
-        assert!(matches!(self[var], None));
+        assert!(matches!(self.get(var), None));
         self.assignments[var] = Some(assignment);
         history.add(var);
     }
 
+    pub(crate) fn set_invariant(&mut self, var: Variable, sign: Sign) {
+        assert!(matches!(self.get(var), None));
+        self.assignments[var] = Some(Assignment::decided(sign, 0));
+    }
+
     pub fn remove(&mut self, var: Variable) {
         self.assignments[var] = None;
-    }
-}
-
-impl Index<Variable> for Assignments {
-    type Output = Option<Assignment>;
-
-    #[inline]
-    fn index(&self, var: Variable) -> &Self::Output {
-        &self.assignments[var as usize]
     }
 }

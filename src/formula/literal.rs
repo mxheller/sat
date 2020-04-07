@@ -17,21 +17,6 @@ impl Literal {
     pub fn sign(&self) -> Sign {
         unimplemented!();
     }
-
-    pub fn implied_in_at_level(
-        &self,
-        clause: &Clause,
-        level: DecisionLevel,
-        assignments: &Assignments,
-    ) -> Option<ClauseIdx> {
-        assignments[self.var()].as_ref().and_then(|ref assignment| {
-            if assignment.decision_level() == level && clause.contains(self) {
-                assignment.antecedent()
-            } else {
-                None
-            }
-        })
-    }
 }
 
 impl std::ops::Not for Literal {

@@ -1,7 +1,7 @@
 use crate::{
     assignments::{Assignment, Assignments},
     formula::{
-        clause::{Clause, ClauseUpdateResult},
+        clause::{Clause, ClauseUpdateResult, Literals},
         Formula, Literal,
     },
     history::History,
@@ -38,12 +38,11 @@ impl Solver {
         while !self.all_variables_assigned() {
             let literal = self.pick_branching_variable();
             self.decision_level += 1;
-            self.assign_and_propogate_decided(literal);
 
-            if let Status::Conflict(c) = self.perform_unit_propogation() {
+            if let Status::Conflict(c) = self.assign_and_propogate_decided(literal) {
                 if let Some((learned, level)) = self.analyze_conflict(c) {
-                    self.formula.clauses.push(learned);
                     self.backtrack(level);
+                    self.learn_clause(learned);
                 } else {
                     return Solution::Unsat;
                 }
@@ -51,6 +50,20 @@ impl Solver {
         }
 
         Solution::Sat
+    }
+
+    pub fn perform_unit_propogation(&mut self) -> Status {
+        let units = self.formula.take_units();
+
+        for unit in units.iter().copied() {
+            self.assign_invariant(unit);
+        }
+
+        for unit in units.iter().copied() {
+            self.propogate(unit);
+        }
+
+        Status::Ok
     }
 
     fn assign_and_propogate_decided(&mut self, literal: Literal) -> Status {
@@ -68,7 +81,11 @@ impl Solver {
             Assignment::implied(literal.sign(), antecedent, self.decision_level),
             &mut self.history,
         );
-        self.history.add(literal.var());
+    }
+
+    fn assign_invariant(&mut self, literal: Literal) {
+        self.assignments
+            .set_invariant(literal.var(), literal.sign());
     }
 
     fn propogate(&mut self, literal: Literal) -> Status {
@@ -81,10 +98,9 @@ impl Solver {
             .collect::<Vec<usize>>();
 
         for clause in affected_clauses {
-            match self.formula.clauses[clause].update(&mut self.watched, &self.assignments, clause)
-            {
+            match self.formula[clause].update(&mut self.watched, &self.assignments, clause) {
                 ClauseUpdateResult::Ok => (),
-                ClauseUpdateResult::Conflict(clause) => return Status::Conflict(clause),
+                ClauseUpdateResult::Conflict(literals) => return Status::Conflict(literals),
                 ClauseUpdateResult::Implied(literal) => {
                     self.assign_implied(literal, clause);
                     implied.push(literal);
@@ -101,8 +117,14 @@ impl Solver {
         Status::Ok
     }
 
-    fn perform_unit_propogation(&mut self) -> Status {
-        unimplemented!()
+    fn learn_clause(&mut self, literals: Literals) {
+        if literals.len() == 1 {
+            let unit = *literals.literals().next().unwrap();
+            self.assign_invariant(unit);
+            self.propogate(unit);
+        } else {
+            self.formula.add_clause(literals);
+        }
     }
 
     fn all_variables_assigned(&self) -> bool {
@@ -113,26 +135,32 @@ impl Solver {
         unimplemented!()
     }
 
-    fn analyze_conflict(&self, mut clause: Clause) -> Option<(Clause, DecisionLevel)> {
+    fn analyze_conflict(&self, mut literals: Literals) -> Option<(Literals, DecisionLevel)> {
         let (level, assignments) = (self.decision_level, &self.assignments);
 
         if level == 0 {
             return None;
         }
 
-        while clause.literals_assigned_at(level, assignments).count() > 1 {
+        while literals.literals_assigned_at(level, assignments).count() > 1 {
             // TODO: this ^ conditional can probably be combined with the below
             // section using equation 4.18
 
-            let antecedent = clause
-                .literals()
-                .find_map(|literal| literal.implied_in_at_level(&clause, level, assignments));
-            clause.resolve(&self.formula.clauses[antecedent.unwrap()]);
+            let antecedent = literals.literals().find_map(|literal| {
+                assignments.get(literal.var()).and_then(|assignment| {
+                    if assignment.decision_level() == level {
+                        assignment.antecedent()
+                    } else {
+                        None
+                    }
+                })
+            });
+            literals.resolve(&self.formula[antecedent.unwrap()]);
         }
 
         // TODO: is this the correct level to backtrack to?
-        let backtrack_level = clause.asserting_level(assignments);
-        Some((clause, backtrack_level))
+        let backtrack_level = literals.asserting_level(assignments);
+        Some((literals, backtrack_level))
     }
 
     fn backtrack(&mut self, level: usize) {
