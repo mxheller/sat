@@ -1,4 +1,4 @@
-use crate::{partitioned_formula, Assignments, DecisionLevel, Literal, Variable};
+use crate::{partitioned_formula, Assignments, DecisionLevel, Evaluate, Literal, Variable};
 use std::collections::BTreeSet;
 
 pub struct Clause {
@@ -10,11 +10,11 @@ impl Clause {
         Self { literals }
     }
 
-    pub fn literals<'a>(&'a self) -> impl Iterator<Item = Literal> + 'a {
+    pub fn literals<'a>(&'a self) -> impl Iterator<Item = Literal> + ExactSizeIterator + 'a {
         self.literals.iter().copied()
     }
 
-    pub fn variables<'a>(&'a self) -> impl Iterator<Item = Variable> + 'a {
+    pub fn variables<'a>(&'a self) -> impl Iterator<Item = Variable> + ExactSizeIterator + 'a {
         self.literals().map(Literal::var)
     }
 
@@ -65,26 +65,36 @@ impl Clause {
         })
     }
 
-    pub fn asserting_level(&self, assignments: &Assignments) -> DecisionLevel {
+    /// Returns a decision level from which the clause can still be satisfied
+    pub fn satisfiable_level(&self, assignments: &Assignments) -> Option<DecisionLevel> {
+        // Make sure all literals are actually unsatisfied
+        debug_assert!(self
+            .literals()
+            .all(|literal| matches!(literal.evaluate(assignments), Some(false))));
+
+        // Get decision levels of each literal's variable
         let mut levels = self
             .variables()
             .map(|var| assignments.get(var).unwrap().decision_level());
-        match (levels.next(), levels.next()) {
-            (Some(first), Some(second)) => {
-                let (mut highest, mut second_highest) =
-                    (std::cmp::max(first, second), std::cmp::min(first, second));
-                for level in levels {
-                    if level > highest {
-                        second_highest = highest;
-                        highest = level;
-                    } else if level > second_highest {
-                        second_highest = level
-                    }
-                }
-                second_highest
-            }
-            _ => 0,
+
+        // It is impossible to fix an unsatisfied clause if it is unit or empty
+        if levels.len() < 2 {
+            return None;
         }
+
+        let (first, second) = (levels.next().unwrap(), levels.next().unwrap());
+        let (mut highest, mut second_highest) =
+            (std::cmp::max(first, second), std::cmp::min(first, second));
+
+        for level in levels {
+            if level > highest {
+                second_highest = highest;
+                highest = level;
+            } else if level > second_highest {
+                second_highest = level
+            }
+        }
+        Some(second_highest)
     }
 
     pub fn len(&self) -> usize {

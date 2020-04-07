@@ -138,7 +138,7 @@ impl Solver {
 
     fn analyze_conflict(
         &self,
-        mut literals: formula::Clause,
+        mut clause: formula::Clause,
     ) -> Option<(formula::Clause, DecisionLevel)> {
         let (level, assignments) = (self.decision_level, &self.assignments);
 
@@ -146,11 +146,11 @@ impl Solver {
             return None;
         }
 
-        while literals.literals_assigned_at(level, assignments).count() > 1 {
+        while clause.literals_assigned_at(level, assignments).count() > 1 {
             // TODO: this ^ conditional can probably be combined with the below
             // section using equation 4.18
 
-            let antecedent = literals.literals().find_map(|literal| {
+            let antecedent = clause.literals().find_map(|literal| {
                 assignments.get(literal.var()).and_then(|assignment| {
                     if assignment.decision_level() == level {
                         assignment.antecedent()
@@ -159,12 +159,13 @@ impl Solver {
                     }
                 })
             });
-            literals.resolve(&self.formula[antecedent.unwrap()]);
+            clause.resolve(&self.formula[antecedent.unwrap()]);
         }
 
         // TODO: is this the correct level to backtrack to?
-        let backtrack_level = literals.asserting_level(assignments);
-        Some((literals, backtrack_level))
+        clause
+            .satisfiable_level(assignments)
+            .map(|level| (clause, level))
     }
 
     fn backtrack(&mut self, level: usize) {
