@@ -15,7 +15,17 @@ pub struct Formula {
 
 impl Formula {
     pub fn num_variables(&self) -> Variable {
-        unimplemented!()
+        self.max_variable().map(|var| var + 1).unwrap_or(0)
+    }
+
+    pub fn max_variable(&self) -> Option<Variable> {
+        let unit_vars = self.unit_clauses.iter().map(Literal::var);
+        let rest_vars = self.remaining_clauses.iter().map(Clause::max_variable);
+        match (unit_vars.max(), rest_vars.max()) {
+            (None, None) => None,
+            (Some(x), None) | (None, Some(x)) => Some(x),
+            (Some(a), Some(b)) => Some(std::cmp::max(a, b)),
+        }
     }
 
     pub fn add_clause(&mut self, literals: Literals) {

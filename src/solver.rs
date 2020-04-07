@@ -1,7 +1,7 @@
 use crate::{
     assignments::{Assignment, Assignments},
     formula::{
-        clause::{Clause, ClauseUpdateResult, Literals},
+        clause::{ClauseUpdateResult, Literals},
         Formula, Literal,
     },
     history::History,

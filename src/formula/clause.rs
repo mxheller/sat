@@ -24,6 +24,13 @@ impl Clause {
         }
     }
 
+    pub fn max_variable(&self) -> Variable {
+        match self {
+            Self::Binary { a, b } => std::cmp::max(a.var(), b.var()),
+            Self::Many { ref literals } => literals.iter().map(Literal::var).max().unwrap(),
+        }
+    }
+
     /// Restores the 2-Watched Literal invariant and
     /// produces a new implied literal if one exists
     pub fn update(
