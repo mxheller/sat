@@ -31,6 +31,10 @@ impl History {
             self.decision_level_breaks.truncate(level);
         }
     }
+
+    pub fn num_assigned(&self) -> usize {
+        self.assignments.len()
+    }
 }
 
 #[test]

@@ -11,6 +11,7 @@ use crate::{
 
 pub struct Solver {
     decision_level: usize,
+    num_variables: usize,
     formula: Formula,
     assignments: Assignments,
     history: History,
@@ -20,13 +21,14 @@ pub struct Solver {
 impl Solver {
     pub fn new(formula: impl Into<Formula>) -> Self {
         let formula = formula.into();
-        let num_vars = formula.num_variables();
+        let num_variables = formula.num_variables();
         Self {
             formula,
+            num_variables,
             decision_level: 0,
-            assignments: Assignments::new(num_vars),
-            history: History::new(num_vars),
-            watched: Watched::new(num_vars),
+            assignments: Assignments::new(num_variables),
+            history: History::new(num_variables),
+            watched: Watched::new(num_variables),
         }
     }
 
@@ -128,7 +130,7 @@ impl Solver {
     }
 
     fn all_variables_assigned(&self) -> bool {
-        unimplemented!()
+        self.history.num_assigned() == self.num_variables
     }
 
     fn pick_branching_variable(&self) -> Literal {
