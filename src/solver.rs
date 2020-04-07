@@ -1,40 +1,64 @@
 use crate::{
     formula,
-    partitioned_formula::{clause, PartitionedFormula},
-    Assignment, Assignments, ClauseIdx, DecisionLevel, History, Literal, Solution, Status, Watched,
+    trimmed_formula::{clause, TrimmedFormula},
+    Assignment, Assignments, ClauseIdx, DecisionLevel, History, Literal, Solution, Watched,
 };
 
 pub struct Solver {
     decision_level: usize,
     num_variables: usize,
-    formula: PartitionedFormula,
+    formula: TrimmedFormula,
     assignments: Assignments,
     history: History,
     watched: Watched,
 }
 
+enum Status {
+    Ok,
+    Conflict(formula::Clause),
+}
+
 impl Solver {
-    pub fn new(formula: impl Into<PartitionedFormula>) -> Self {
+    pub fn solve_formula(formula: impl Into<formula::Formula>) -> Solution {
         let formula = formula.into();
         let num_variables = formula.num_variables();
-        Self {
-            formula,
-            num_variables,
-            decision_level: 0,
+
+        let mut solver = Self {
+            formula: TrimmedFormula::new(formula.clauses.len()),
             assignments: Assignments::new(num_variables),
             history: History::new(num_variables),
             watched: Watched::new(num_variables),
+            decision_level: 0,
+            num_variables,
+        };
+
+        let mut units = Vec::new();
+        for clause in formula.clauses.into_iter() {
+            let mut literals = clause.into_iter();
+            match literals.len() {
+                0 => return Solution::Unsat,
+                1 => {
+                    let unit = literals.next().unwrap();
+                    solver.assign_invariant(unit);
+                    units.push(unit);
+                }
+                _ => solver.formula.add_clause(literals, &mut solver.watched),
+            }
         }
+
+        for unit in units.into_iter() {
+            if let Status::Conflict(_) = solver.propogate(unit) {
+                return Solution::Unsat;
+            }
+        }
+
+        solver.solve()
     }
 
-    pub fn solve(mut self) -> Solution {
-        if let Status::Conflict(_) = self.perform_unit_propogation() {
-            return Solution::Unsat;
-        }
-
+    fn solve(mut self) -> Solution {
         while !self.all_variables_assigned() {
             let literal = self.pick_branching_variable();
-            self.decision_level += 1;
+            self.new_decision_level();
 
             if let Status::Conflict(c) = self.assign_and_propogate_decided(literal) {
                 if let Some((learned, level)) = self.analyze_conflict(c) {
@@ -49,18 +73,9 @@ impl Solver {
         Solution::Sat
     }
 
-    pub fn perform_unit_propogation(&mut self) -> Status {
-        let units = self.formula.take_units();
-
-        for unit in units.iter().copied() {
-            self.assign_invariant(unit);
-        }
-
-        for unit in units.iter().copied() {
-            self.propogate(unit);
-        }
-
-        Status::Ok
+    fn new_decision_level(&mut self) {
+        self.decision_level += 1;
+        self.history.new_decision_level();
     }
 
     fn assign_and_propogate_decided(&mut self, literal: Literal) -> Status {
@@ -115,12 +130,14 @@ impl Solver {
     }
 
     fn learn_clause(&mut self, mut clause: impl Iterator<Item = Literal> + ExactSizeIterator) {
-        if clause.len() == 1 {
-            let unit = clause.next().unwrap();
-            self.assign_invariant(unit);
-            self.propogate(unit);
-        } else {
-            self.formula.add_clause(clause);
+        match clause.len() {
+            0 => panic!("Trying to learn an empty (unsat) clause"),
+            1 => {
+                let unit = clause.next().unwrap();
+                self.assign_invariant(unit);
+                self.propogate(unit);
+            }
+            _ => self.formula.add_clause(clause, &mut self.watched),
         }
     }
 

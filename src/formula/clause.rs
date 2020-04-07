@@ -1,4 +1,4 @@
-use crate::{partitioned_formula, Assignments, DecisionLevel, Evaluate, Literal, Variable};
+use crate::{trimmed_formula, Assignments, DecisionLevel, Evaluate, Literal, Variable};
 use std::collections::BTreeSet;
 
 pub struct Clause {
@@ -22,9 +22,9 @@ impl Clause {
         self.literals.contains(&literal)
     }
 
-    pub fn resolve(&mut self, other: &partitioned_formula::Clause) {
+    pub fn resolve(&mut self, other: &trimmed_formula::Clause) {
         match other {
-            partitioned_formula::Clause::Binary { a, b } => {
+            trimmed_formula::Clause::Binary { a, b } => {
                 let (a, b) = (*a, *b);
                 if self.contains(!a) {
                     self.literals.remove(&!a);
@@ -36,7 +36,7 @@ impl Clause {
                     self.literals.insert(a);
                 }
             }
-            partitioned_formula::Clause::Many { literals } => {
+            trimmed_formula::Clause::Many { literals } => {
                 let mut found_overlap = false;
 
                 for literal in literals.iter().copied() {
@@ -67,6 +67,8 @@ impl Clause {
 
     /// Returns a decision level from which the clause can still be satisfied
     pub fn satisfiable_level(&self, assignments: &Assignments) -> Option<DecisionLevel> {
+        // FIXME:
+
         // Make sure all literals are actually unsatisfied
         debug_assert!(self
             .literals()

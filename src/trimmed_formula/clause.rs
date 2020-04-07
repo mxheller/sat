@@ -1,4 +1,4 @@
-use crate::{formula, Assignments, ClauseIdx, Evaluate, Literal, Variable, Watched};
+use crate::{formula, Assignments, ClauseIdx, Evaluate, Literal, Watched};
 
 pub enum Clause {
     Binary { a: Literal, b: Literal },
@@ -12,25 +12,20 @@ pub enum Status {
 }
 
 impl Clause {
-    pub fn new(literals: Vec<Literal>) -> Clause {
-        assert!(literals.len() > 1);
-        match &literals.as_slice() {
-            [a, b] => Self::Binary { a: *a, b: *b },
-            _ => Self::Many { literals },
+    pub fn new(mut literals: impl Iterator<Item = Literal> + ExactSizeIterator) -> Self {
+        match literals.len() {
+            0 | 1 => panic!("TrimmedFormula should only contain clauses with len >= 1"),
+            2 => Self::Binary {
+                a: literals.next().unwrap(),
+                b: literals.next().unwrap(),
+            },
+            _ => Self::Many {
+                literals: literals.collect(),
+            },
         }
     }
 
-    pub fn max_variable(&self) -> Variable {
-        match self {
-            Self::Binary { a, b } => std::cmp::max(a.var(), b.var()),
-            Self::Many { ref literals } => {
-                literals.iter().copied().map(Literal::var).max().unwrap()
-            }
-        }
-    }
-
-    /// Restores the 2-Watched Literal invariant and
-    /// produces a new implied literal if one exists
+    /// Restores the 2-Watched Literal invariant and produces a new implied literal if one exists
     pub fn update(
         &mut self,
         watched: &mut Watched,
@@ -96,18 +91,5 @@ impl Clause {
             Self::Binary { a, b } => [*a, *b].iter().copied().collect(),
             Self::Many { literals } => literals.iter().copied().collect(),
         })
-    }
-}
-
-impl Evaluate for Clause {
-    fn evaluate(&self, assignments: &Assignments) -> Option<bool> {
-        match self {
-            Self::Binary { a, b } => a.evaluate(assignments).or_else(|| b.evaluate(assignments)),
-            Self::Many { literals } => literals
-                .iter()
-                .map(|literal| literal.evaluate(assignments))
-                .collect::<Option<Vec<_>>>()
-                .map(|truths| truths.iter().any(|x| *x)),
-        }
     }
 }
