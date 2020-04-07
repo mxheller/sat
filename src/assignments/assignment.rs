@@ -1,6 +1,6 @@
 use crate::{sign::Sign, ClauseIdx, DecisionLevel};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Assignment {
     sign: Sign,
     antecedent: Option<ClauseIdx>,

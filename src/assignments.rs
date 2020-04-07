@@ -1,8 +1,10 @@
-use crate::{DecisionLevel, Variable};
+use crate::{history::History, Variable};
+use std::ops::Index;
 
 pub mod assignment;
 pub use assignment::Assignment;
 
+#[derive(Clone, Debug)]
 pub struct Assignments {
     assignments: Vec<Option<Assignment>>,
 }
@@ -18,20 +20,22 @@ impl Assignments {
         unimplemented!();
     }
 
-    /// Get the assignment of a variable as of a given decision level
-    pub fn get(&self, var: Variable, current_level: DecisionLevel) -> Option<&Assignment> {
-        self.assignments[var].as_ref().and_then(|assignment| {
-            // Don't return assignment if it was made after current decision level
-            if assignment.decision_level() > current_level {
-                None
-            } else {
-                Some(assignment)
-            }
-        })
+    pub fn set(&mut self, var: Variable, assignment: Assignment, history: &mut History) {
+        assert!(matches!(self[var], None));
+        self.assignments[var] = Some(assignment);
+        history.add(var);
     }
 
-    pub fn set(&mut self, var: Variable, assignment: Assignment) {
-        debug_assert!(matches!(self.get(var, assignment.decision_level()), None));
-        self.assignments[var] = Some(assignment);
+    pub fn remove(&mut self, var: Variable) {
+        self.assignments[var] = None;
+    }
+}
+
+impl Index<Variable> for Assignments {
+    type Output = Option<Assignment>;
+
+    #[inline]
+    fn index(&self, var: Variable) -> &Self::Output {
+        &self.assignments[var as usize]
     }
 }

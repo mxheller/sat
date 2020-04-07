@@ -4,15 +4,16 @@ use crate::{
         clause::{Clause, ClauseUpdateResult},
         Formula, Literal,
     },
-    sign::Sign,
+    history::History,
     watched::Watched,
-    ClauseIdx, DecisionLevel, Solution, Status, Variable,
+    ClauseIdx, DecisionLevel, Solution, Status,
 };
 
 pub struct Solver {
     decision_level: usize,
     formula: Formula,
     assignments: Assignments,
+    history: History,
     watched: Watched,
 }
 
@@ -24,6 +25,7 @@ impl Solver {
             formula,
             decision_level: 0,
             assignments: Assignments::new(num_vars),
+            history: History::new(num_vars),
             watched: Watched::new(num_vars),
         }
     }
@@ -55,6 +57,7 @@ impl Solver {
         self.assignments.set(
             literal.var(),
             Assignment::decided(literal.sign(), self.decision_level),
+            &mut self.history,
         );
         self.propogate(literal)
     }
@@ -63,7 +66,9 @@ impl Solver {
         self.assignments.set(
             literal.var(),
             Assignment::implied(literal.sign(), antecedent, self.decision_level),
+            &mut self.history,
         );
+        self.history.add(literal.var());
     }
 
     fn propogate(&mut self, literal: Literal) -> Status {
@@ -76,12 +81,8 @@ impl Solver {
             .collect::<Vec<usize>>();
 
         for clause in affected_clauses {
-            match self.formula.clauses[clause].update(
-                &mut self.watched,
-                &self.assignments,
-                self.decision_level,
-                clause,
-            ) {
+            match self.formula.clauses[clause].update(&mut self.watched, &self.assignments, clause)
+            {
                 ClauseUpdateResult::Ok => (),
                 ClauseUpdateResult::Conflict(clause) => return Status::Conflict(clause),
                 ClauseUpdateResult::Implied(literal) => {
@@ -130,12 +131,12 @@ impl Solver {
         }
 
         // TODO: is this the correct level to backtrack to?
-        let backtrack_level = clause.asserting_level(assignments, self.decision_level);
+        let backtrack_level = clause.asserting_level(assignments);
         Some((clause, backtrack_level))
     }
 
     fn backtrack(&mut self, level: usize) {
         self.decision_level = level;
-        unimplemented!()
+        self.history.revert_to(level, &mut self.assignments);
     }
 }

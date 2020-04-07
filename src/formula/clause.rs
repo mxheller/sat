@@ -43,7 +43,6 @@ impl Clause {
         &mut self,
         watched: &mut Watched,
         assignments: &Assignments,
-        level: DecisionLevel,
         clause_idx: ClauseIdx,
     ) -> ClauseUpdateResult {
         // Make sure no unit clauses are being watched
@@ -51,7 +50,7 @@ impl Clause {
         debug_assert!(num_lits > 1);
 
         // Determines the value of a literal in the current assignment
-        let value = |idx: usize| self.literals[idx].evaluate(level, assignments);
+        let value = |idx: usize| self.literals[idx].evaluate(assignments);
 
         let mut watch = |literals: &mut Vec<Literal>, idx, slot| {
             if idx != slot {
@@ -113,25 +112,17 @@ impl Clause {
         assignments: &'a Assignments,
     ) -> impl Iterator<Item = &Literal> + 'a {
         self.literals().filter(move |literal| {
-            assignments
-                .get(literal.var(), level)
+            assignments[literal.var()]
                 .as_ref()
                 .map(|assignment| assignment.decision_level() == level)
                 .unwrap_or(false)
         })
     }
 
-    pub fn asserting_level(
-        &self,
-        assignments: &Assignments,
-        current_level: DecisionLevel,
-    ) -> DecisionLevel {
-        let mut levels = self.variables().map(|var| {
-            assignments
-                .get(var, current_level)
-                .unwrap()
-                .decision_level()
-        });
+    pub fn asserting_level(&self, assignments: &Assignments) -> DecisionLevel {
+        let mut levels = self
+            .variables()
+            .map(|var| assignments[var].as_ref().unwrap().decision_level());
         match (levels.next(), levels.next()) {
             (Some(first), Some(second)) => {
                 let (mut highest, mut second_highest) =

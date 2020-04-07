@@ -24,15 +24,13 @@ impl Literal {
         level: DecisionLevel,
         assignments: &Assignments,
     ) -> Option<ClauseIdx> {
-        assignments
-            .get(self.var(), level)
-            .and_then(|ref assignment| {
-                if assignment.decision_level() == level && clause.contains(self) {
-                    assignment.antecedent()
-                } else {
-                    None
-                }
-            })
+        assignments[self.var()].as_ref().and_then(|ref assignment| {
+            if assignment.decision_level() == level && clause.contains(self) {
+                assignment.antecedent()
+            } else {
+                None
+            }
+        })
     }
 }
 

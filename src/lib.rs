@@ -1,6 +1,7 @@
 pub mod assignments;
 pub mod evaluate;
 pub mod formula;
+pub mod history;
 pub mod sign;
 pub mod solver;
 pub mod watched;
