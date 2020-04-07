@@ -67,7 +67,7 @@ fn rewriting_history() {
         assert_eq!(history.assignments, vec![0]);
         assert_eq!(history.decision_level_breaks, vec![]);
 
-        assert!(matches!(assignments[1], None));
+        assert!(matches!(assignments.get(1), None));
     }
 
     {

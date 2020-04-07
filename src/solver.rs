@@ -134,7 +134,11 @@ impl Solver {
     }
 
     fn pick_branching_variable(&self) -> Literal {
-        unimplemented!()
+        // TODO: smart
+        (0..self.num_variables)
+            .find(|var| matches!(self.assignments.get(*var), None))
+            .map(|var| Literal::new(var, true))
+            .unwrap()
     }
 
     fn analyze_conflict(&self, mut literals: Literals) -> Option<(Literals, DecisionLevel)> {
