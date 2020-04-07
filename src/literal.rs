@@ -1,4 +1,4 @@
-use crate::{assignments::Assignments, sign::Sign, Evaluate, Variable};
+use crate::{Assignments, Evaluate, Sign, Variable};
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Literal {

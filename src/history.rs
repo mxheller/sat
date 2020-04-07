@@ -1,4 +1,4 @@
-use crate::{assignments::Assignments, DecisionLevel, Variable};
+use crate::{Assignments, DecisionLevel, Variable};
 
 #[derive(Clone, Debug)]
 pub struct History {

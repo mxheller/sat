@@ -1,4 +1,4 @@
-use crate::{formula::Literal, sign::Sign, ClauseIdx, Variable};
+use crate::{ClauseIdx, Literal, Sign, Variable};
 use std::{
     collections::BTreeSet,
     ops::{Index, IndexMut},

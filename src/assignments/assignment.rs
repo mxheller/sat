@@ -1,4 +1,4 @@
-use crate::{sign::Sign, ClauseIdx, DecisionLevel};
+use crate::{ClauseIdx, DecisionLevel, Sign};
 
 #[derive(Clone, Debug)]
 pub struct Assignment {

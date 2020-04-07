@@ -1,4 +1,4 @@
-use crate::{history::History, sign::Sign, Variable};
+use crate::{History, Sign, Variable};
 
 pub mod assignment;
 pub use assignment::Assignment;

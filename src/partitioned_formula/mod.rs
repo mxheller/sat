@@ -1,19 +1,17 @@
-use crate::{assignments::Assignments, ClauseIdx, Evaluate, Variable};
+use crate::{Assignments, ClauseIdx, Evaluate, Literal, Variable};
 use std::ops::{Index, IndexMut};
 
 pub mod clause;
-pub mod literal;
 
-pub use clause::{Clause, Literals};
-pub use literal::Literal;
+pub use clause::Clause;
 
-pub struct Formula {
+pub struct PartitionedFormula {
     contains_empty_clause: bool,
     unit_clauses: Vec<Literal>,
     remaining_clauses: Vec<Clause>,
 }
 
-impl Formula {
+impl PartitionedFormula {
     pub fn num_variables(&self) -> Variable {
         self.max_variable().map(|var| var + 1).unwrap_or(0)
     }
@@ -45,7 +43,7 @@ impl Formula {
     }
 }
 
-impl Evaluate for Formula {
+impl Evaluate for PartitionedFormula {
     fn evaluate(&self, assignments: &Assignments) -> Option<bool> {
         if self.contains_empty_clause {
             Some(false)
@@ -64,7 +62,7 @@ impl Evaluate for Formula {
     }
 }
 
-impl Index<ClauseIdx> for Formula {
+impl Index<ClauseIdx> for PartitionedFormula {
     type Output = Clause;
 
     fn index(&self, idx: ClauseIdx) -> &Self::Output {
@@ -72,7 +70,7 @@ impl Index<ClauseIdx> for Formula {
     }
 }
 
-impl IndexMut<ClauseIdx> for Formula {
+impl IndexMut<ClauseIdx> for PartitionedFormula {
     fn index_mut(&mut self, idx: ClauseIdx) -> &mut Self::Output {
         &mut self.remaining_clauses[idx]
     }

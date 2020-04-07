@@ -1,25 +1,20 @@
 use crate::{
-    assignments::{Assignment, Assignments},
-    formula::{
-        clause::{ClauseUpdateResult, Literals},
-        Formula, Literal,
-    },
-    history::History,
-    watched::Watched,
-    ClauseIdx, DecisionLevel, Solution, Status,
+    formula,
+    partitioned_formula::{clause, PartitionedFormula},
+    Assignment, Assignments, ClauseIdx, DecisionLevel, History, Literal, Solution, Status, Watched,
 };
 
 pub struct Solver {
     decision_level: usize,
     num_variables: usize,
-    formula: Formula,
+    formula: PartitionedFormula,
     assignments: Assignments,
     history: History,
     watched: Watched,
 }
 
 impl Solver {
-    pub fn new(formula: impl Into<Formula>) -> Self {
+    pub fn new(formula: impl Into<PartitionedFormula>) -> Self {
         let formula = formula.into();
         let num_variables = formula.num_variables();
         Self {
@@ -101,9 +96,9 @@ impl Solver {
 
         for clause in affected_clauses {
             match self.formula[clause].update(&mut self.watched, &self.assignments, clause) {
-                ClauseUpdateResult::Ok => (),
-                ClauseUpdateResult::Conflict(literals) => return Status::Conflict(literals),
-                ClauseUpdateResult::Implied(literal) => {
+                clause::Status::Ok => (),
+                clause::Status::Conflict(literals) => return Status::Conflict(literals),
+                clause::Status::Implied(literal) => {
                     self.assign_implied(literal, clause);
                     implied.push(literal);
                 }
@@ -119,13 +114,13 @@ impl Solver {
         Status::Ok
     }
 
-    fn learn_clause(&mut self, literals: Literals) {
-        if literals.len() == 1 {
-            let unit = literals.literals().next().unwrap();
+    fn learn_clause(&mut self, clause: formula::Clause) {
+        if clause.len() == 1 {
+            let unit = clause.literals().next().unwrap();
             self.assign_invariant(unit);
             self.propogate(unit);
         } else {
-            self.formula.add_clause(literals.into_literals());
+            self.formula.add_clause(clause.into_literals());
         }
     }
 
@@ -141,7 +136,10 @@ impl Solver {
             .unwrap()
     }
 
-    fn analyze_conflict(&self, mut literals: Literals) -> Option<(Literals, DecisionLevel)> {
+    fn analyze_conflict(
+        &self,
+        mut literals: formula::Clause,
+    ) -> Option<(formula::Clause, DecisionLevel)> {
         let (level, assignments) = (self.decision_level, &self.assignments);
 
         if level == 0 {
