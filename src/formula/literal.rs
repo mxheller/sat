@@ -1,6 +1,4 @@
-use crate::{
-    assignments::Assignments, formula::Clause, sign::Sign, ClauseIdx, DecisionLevel, Variable,
-};
+use crate::{assignments::Assignments, sign::Sign, ClauseIdx, Evaluate, Variable};
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
 pub struct Literal {}
@@ -16,6 +14,14 @@ impl Literal {
 
     pub fn sign(&self) -> Sign {
         unimplemented!();
+    }
+}
+
+impl Evaluate for Literal {
+    fn evaluate(&self, assignments: &Assignments) -> Option<bool> {
+        assignments
+            .get(self.var())
+            .map(|assignment| assignment.sign() == self.sign())
     }
 }
 

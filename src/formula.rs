@@ -1,4 +1,4 @@
-use crate::{ClauseIdx, Variable};
+use crate::{assignments::Assignments, ClauseIdx, Evaluate, Variable};
 use std::ops::{Index, IndexMut};
 
 pub mod clause;
@@ -42,6 +42,25 @@ impl Formula {
         let mut units = Vec::new();
         std::mem::swap(&mut units, &mut self.unit_clauses);
         units
+    }
+}
+
+impl Evaluate for Formula {
+    fn evaluate(&self, assignments: &Assignments) -> Option<bool> {
+        if self.contains_empty_clause {
+            Some(false)
+        } else {
+            let units = self
+                .unit_clauses
+                .iter()
+                .map(|literal| literal.evaluate(assignments));
+            self.remaining_clauses
+                .iter()
+                .map(|clause| clause.evaluate(assignments))
+                .chain(units)
+                .collect::<Option<Vec<_>>>()
+                .map(|truths| truths.iter().all(|x| *x))
+        }
     }
 }
 

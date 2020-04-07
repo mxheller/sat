@@ -1,5 +1,4 @@
 pub mod assignments;
-pub mod evaluate;
 pub mod formula;
 pub mod history;
 pub mod sign;
@@ -8,6 +7,11 @@ pub mod watched;
 
 pub type Variable = usize;
 pub type ClauseIdx = usize;
+pub type DecisionLevel = Variable;
+
+pub trait Evaluate {
+    fn evaluate(&self, assignments: &assignments::Assignments) -> Option<bool>;
+}
 
 pub enum Status {
     Ok,
@@ -17,4 +21,3 @@ pub enum Solution {
     Sat,
     Unsat,
 }
-pub type DecisionLevel = usize;

@@ -1,10 +1,9 @@
 use crate::{
-    assignments::Assignments, evaluate::Evaluate, formula::Literal, watched::Watched, ClauseIdx,
-    DecisionLevel, Variable,
+    assignments::Assignments, formula::Literal, watched::Watched, ClauseIdx, DecisionLevel,
+    Evaluate, Variable,
 };
 use std::collections::BTreeSet;
 
-#[derive(Clone)]
 pub enum Clause {
     Binary { a: Literal, b: Literal },
     Many { literals: Vec<Literal> },
@@ -100,6 +99,19 @@ impl Clause {
                 Self::Binary { a, b } => [*a, *b].iter().copied().collect(),
                 Self::Many { literals } => literals.iter().copied().collect(),
             },
+        }
+    }
+}
+
+impl Evaluate for Clause {
+    fn evaluate(&self, assignments: &Assignments) -> Option<bool> {
+        match self {
+            Self::Binary { a, b } => a.evaluate(assignments).or_else(|| b.evaluate(assignments)),
+            Self::Many { literals } => literals
+                .iter()
+                .map(|literal| literal.evaluate(assignments))
+                .collect::<Option<Vec<_>>>()
+                .map(|truths| truths.iter().any(|x| *x)),
         }
     }
 }
