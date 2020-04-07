@@ -14,10 +14,6 @@ impl Clause {
         self.literals.iter().copied()
     }
 
-    pub fn into_literals(self) -> impl Iterator<Item = Literal> {
-        self.literals.into_iter()
-    }
-
     pub fn variables<'a>(&'a self) -> impl Iterator<Item = Variable> + 'a {
         self.literals().map(Literal::var)
     }
@@ -97,5 +93,14 @@ impl Clause {
 
     pub fn is_empty(&self) -> bool {
         self.literals.is_empty()
+    }
+}
+
+impl IntoIterator for Clause {
+    type Item = Literal;
+    type IntoIter = <BTreeSet<Literal> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.literals.into_iter()
     }
 }

@@ -39,7 +39,7 @@ impl Solver {
             if let Status::Conflict(c) = self.assign_and_propogate_decided(literal) {
                 if let Some((learned, level)) = self.analyze_conflict(c) {
                     self.backtrack(level);
-                    self.learn_clause(learned);
+                    self.learn_clause(learned.into_iter());
                 } else {
                     return Solution::Unsat;
                 }
@@ -114,13 +114,13 @@ impl Solver {
         Status::Ok
     }
 
-    fn learn_clause(&mut self, clause: formula::Clause) {
+    fn learn_clause(&mut self, mut clause: impl Iterator<Item = Literal> + ExactSizeIterator) {
         if clause.len() == 1 {
-            let unit = clause.literals().next().unwrap();
+            let unit = clause.next().unwrap();
             self.assign_invariant(unit);
             self.propogate(unit);
         } else {
-            self.formula.add_clause(clause.into_literals());
+            self.formula.add_clause(clause);
         }
     }
 
