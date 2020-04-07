@@ -19,7 +19,7 @@ impl Formula {
     }
 
     pub fn max_variable(&self) -> Option<Variable> {
-        let unit_vars = self.unit_clauses.iter().map(Literal::var);
+        let unit_vars = self.unit_clauses.iter().copied().map(Literal::var);
         let rest_vars = self.remaining_clauses.iter().map(Clause::max_variable);
         match (unit_vars.max(), rest_vars.max()) {
             (None, None) => None,

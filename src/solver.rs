@@ -121,7 +121,7 @@ impl Solver {
 
     fn learn_clause(&mut self, literals: Literals) {
         if literals.len() == 1 {
-            let unit = *literals.literals().next().unwrap();
+            let unit = literals.literals().next().unwrap();
             self.assign_invariant(unit);
             self.propogate(unit);
         } else {

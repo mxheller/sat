@@ -27,7 +27,9 @@ impl Clause {
     pub fn max_variable(&self) -> Variable {
         match self {
             Self::Binary { a, b } => std::cmp::max(a.var(), b.var()),
-            Self::Many { ref literals } => literals.iter().map(Literal::var).max().unwrap(),
+            Self::Many { ref literals } => {
+                literals.iter().copied().map(Literal::var).max().unwrap()
+            }
         }
     }
 
@@ -121,8 +123,8 @@ pub struct Literals {
 }
 
 impl Literals {
-    pub fn literals(&self) -> impl Iterator<Item = &Literal> {
-        self.literals.iter()
+    pub fn literals<'a>(&'a self) -> impl Iterator<Item = Literal> + 'a {
+        self.literals.iter().copied()
     }
 
     pub fn into_literals(self) -> impl Iterator<Item = Literal> {
@@ -171,7 +173,7 @@ impl Literals {
         &'a self,
         level: DecisionLevel,
         assignments: &'a Assignments,
-    ) -> impl Iterator<Item = &Literal> + 'a {
+    ) -> impl Iterator<Item = Literal> + 'a {
         self.literals().filter(move |literal| {
             assignments
                 .get(literal.var())

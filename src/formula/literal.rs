@@ -1,19 +1,28 @@
-use crate::{assignments::Assignments, sign::Sign, ClauseIdx, Evaluate, Variable};
+use crate::{assignments::Assignments, sign::Sign, Evaluate, Variable};
 
 #[derive(Clone, Copy, Eq, PartialEq, Ord, PartialOrd)]
-pub struct Literal {}
+pub struct Literal {
+    code: Variable,
+}
 
 impl Literal {
-    pub fn new(var: Variable, sign: Sign) -> Self {
-        unimplemented!()
+    #[inline]
+    pub fn new(var: Variable, sign: impl Into<Sign>) -> Self {
+        assert!(var < (Variable::max_value() >> 1));
+        let sign = sign.into();
+        Literal {
+            code: (var << 1) | matches!(sign, Sign::Positive) as Variable,
+        }
     }
 
-    pub fn var(&self) -> Variable {
-        unimplemented!();
+    #[inline]
+    pub fn var(self) -> Variable {
+        self.code >> 1
     }
 
-    pub fn sign(&self) -> Sign {
-        unimplemented!();
+    #[inline]
+    pub fn sign(self) -> Sign {
+        ((self.code & 1) == 1).into()
     }
 }
 
@@ -30,6 +39,8 @@ impl std::ops::Not for Literal {
 
     #[inline]
     fn not(self) -> Self::Output {
-        unimplemented!()
+        Literal {
+            code: self.code ^ 1,
+        }
     }
 }

@@ -1,5 +1,4 @@
 use crate::{history::History, sign::Sign, Variable};
-use std::ops::Index;
 
 pub mod assignment;
 pub use assignment::Assignment;
@@ -14,10 +13,6 @@ impl Assignments {
         Self {
             assignments: vec![None; num_vars as usize],
         }
-    }
-
-    pub fn implies(&self, a: Variable, b: Variable) -> bool {
-        unimplemented!();
     }
 
     pub fn get(&self, var: Variable) -> Option<&Assignment> {
