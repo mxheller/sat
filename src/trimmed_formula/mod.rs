@@ -1,9 +1,9 @@
-use crate::{ClauseIdx, Literal, Watched};
+use crate::{Assignments, ClauseIdx, Literal, Watched};
 use std::ops::{Index, IndexMut};
 
 pub mod clause;
 
-pub use clause::Clause;
+pub use clause::{Clause, Status};
 
 /// A formula that contains no empty or unit clauses
 pub struct TrimmedFormula {
@@ -21,7 +21,8 @@ impl TrimmedFormula {
         &mut self,
         literals: impl Iterator<Item = Literal> + ExactSizeIterator,
         watched: &mut Watched,
-    ) {
+        assignments: &Assignments,
+    ) -> (ClauseIdx, Status) {
         let clause = Clause::new(literals);
         let idx = self.clauses.len();
         match &clause {
@@ -34,7 +35,9 @@ impl TrimmedFormula {
                 watched[literals[1]].insert(idx);
             }
         }
+        let idx = self.clauses.len();
         self.clauses.push(clause);
+        (idx, self.clauses[idx].update(watched, assignments, idx))
     }
 }
 

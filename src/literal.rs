@@ -44,3 +44,22 @@ impl std::ops::Not for Literal {
         }
     }
 }
+
+impl From<isize> for Literal {
+    fn from(x: isize) -> Self {
+        assert_ne!(x, 0, "literals can only be parsed from non-zero inputs");
+        Self::new(x.abs() as Variable, x > 0)
+    }
+}
+
+impl std::fmt::Display for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}{}", self.sign(), self.var())
+    }
+}
+
+impl std::fmt::Debug for Literal {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "{}{}", self.sign(), self.var())
+    }
+}

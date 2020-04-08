@@ -1,6 +1,7 @@
 use crate::{trimmed_formula, Assignment, Assignments, DecisionLevel, Evaluate, Literal, Variable};
 use std::collections::BTreeSet;
 
+#[derive(Debug)]
 pub struct Clause {
     literals: BTreeSet<Literal>,
 }
@@ -22,33 +23,21 @@ impl Clause {
         self.literals.contains(&literal)
     }
 
-    pub fn resolve(&mut self, other: &trimmed_formula::Clause) {
+    pub fn resolve(&mut self, literal: Literal, other: &trimmed_formula::Clause) {
+        assert!(self.literals.remove(&literal));
+
         match other {
-            trimmed_formula::Clause::Binary { a, b } => {
-                let (a, b) = (*a, *b);
-                if self.contains(!a) {
-                    self.literals.remove(&!a);
-                    debug_assert!(!self.contains(!b));
-                    self.literals.insert(b);
-                } else {
-                    debug_assert!(self.contains(!b));
-                    self.literals.remove(&!b);
-                    self.literals.insert(a);
-                }
+            trimmed_formula::Clause::Binary { a, b } if *a == !literal => {
+                self.literals.insert(*b);
+            }
+            trimmed_formula::Clause::Binary { a, b } if *b == !literal => {
+                self.literals.insert(*a);
             }
             trimmed_formula::Clause::Many { literals } => {
-                let mut found_overlap = false;
-
-                for literal in literals.iter().copied() {
-                    debug_assert!(!found_overlap || !self.contains(!literal));
-                    if !found_overlap && self.contains(!literal) {
-                        self.literals.remove(&!literal);
-                        found_overlap = true;
-                    } else {
-                        self.literals.insert(literal);
-                    }
-                }
+                self.literals
+                    .extend(literals.iter().copied().filter(|x| *x != !literal));
             }
+            _ => panic!("'antecedent' clause wasn't actually antecedent"),
         }
     }
 
@@ -57,13 +46,19 @@ impl Clause {
         level: DecisionLevel,
         assignments: &'a Assignments,
     ) -> impl Iterator<Item = (Literal, &Assignment)> + 'a {
-        self.literals()
-            .filter_map(move |literal| {
-                assignments
-                    .get(literal.var())
-                    .map(|assignment| (literal, assignment))
-            })
+        self.assignments(assignments)
             .filter(move |(_, assignment)| assignment.decision_level() == level)
+    }
+
+    pub fn assignments<'a>(
+        &'a self,
+        assignments: &'a Assignments,
+    ) -> impl Iterator<Item = (Literal, &Assignment)> + 'a {
+        self.literals().filter_map(move |literal| {
+            assignments
+                .get(literal.var())
+                .map(|assignment| (literal, assignment))
+        })
     }
 
     /// Returns a decision level from which the clause can still be satisfied
@@ -77,12 +72,13 @@ impl Clause {
             .literals()
             .all(|literal| matches!(literal.evaluate(assignments), Some(false))));
 
-        // Ensure there is only a single literal assigned at the conflict level
+        // Ensure there is a single literal assigned at the conflict level
         debug_assert_eq!(
             self.variables()
                 .filter(|var| assignments.get(*var).unwrap().decision_level() == conflict_level)
                 .count(),
-            1
+            1,
+            "There should be exactly one literal assigned at the conflict level in the clause to be learned"
         );
 
         // Return the maximum level below the conflict level
@@ -107,5 +103,26 @@ impl IntoIterator for Clause {
 
     fn into_iter(self) -> Self::IntoIter {
         self.literals.into_iter()
+    }
+}
+
+impl std::str::FromStr for Clause {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let literals = s
+            .split_whitespace()
+            .filter(|s| *s != "0")
+            .map(|s| s.parse::<isize>().map(Literal::from))
+            .collect::<Result<BTreeSet<_>, _>>()?;
+        Ok(Self { literals })
+    }
+}
+
+impl From<Literal> for Clause {
+    fn from(literal: Literal) -> Self {
+        let mut literals = BTreeSet::new();
+        literals.insert(literal);
+        Self { literals }
     }
 }

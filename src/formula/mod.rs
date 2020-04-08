@@ -1,6 +1,6 @@
 pub mod clause;
 
-use crate::{Literal, Solution, Solver, Variable};
+use crate::{solver::Solution, Literal, Sign, Solver, Variable};
 pub use clause::Clause;
 
 pub struct Formula {
@@ -8,7 +8,23 @@ pub struct Formula {
 }
 
 impl Formula {
-    pub fn solve(self) -> Solution {
+    pub fn parse(lines: impl IntoIterator<Item = impl AsRef<str>>) -> Result<Self, String> {
+        let clauses = lines
+            .into_iter()
+            .filter(|l| !l.as_ref().starts_with('c') && !l.as_ref().starts_with('p'))
+            .map(|l| l.as_ref().parse::<Clause>())
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| format!("{}", e))?;
+        Ok(Self { clauses })
+    }
+
+    pub fn parse_and_solve(
+        lines: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
+        Self::parse(lines).map(Solver::solve_formula)
+    }
+
+    pub fn solve(self) -> Solution<impl IntoIterator<Item = (Variable, Sign)>> {
         Solver::solve_formula(self)
     }
 

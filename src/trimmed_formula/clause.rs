@@ -1,10 +1,12 @@
 use crate::{formula, Assignments, ClauseIdx, Evaluate, Literal, Watched};
 
+#[derive(Debug)]
 pub enum Clause {
     Binary { a: Literal, b: Literal },
     Many { literals: Vec<Literal> },
 }
 
+#[must_use]
 pub enum Status {
     Ok,
     Conflict(formula::Clause),
@@ -38,7 +40,10 @@ impl Clause {
                 (None, Some(false)) => Status::Implied(*a),
                 (Some(false), None) => Status::Implied(*b),
                 (Some(false), Some(false)) => Status::Conflict(self.get_literals()),
-                (None, None) => panic!("Neither watched literal was affected"),
+                (None, None) => {
+                    dbg!("Neither watched literal was affected");
+                    Status::Ok
+                }
             },
             Self::Many { ref mut literals } => {
                 // Determines the value of a literal in the current assignment

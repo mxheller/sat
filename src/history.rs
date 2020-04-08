@@ -1,8 +1,9 @@
-use crate::{Assignments, DecisionLevel, Variable};
+use crate::{Assignments, DecisionLevel, Literal, Variable};
 
 #[derive(Clone, Debug)]
 pub struct History {
-    assignments: Vec<Variable>,
+    assignments: Vec<Literal>,
+    next_to_propogate: usize,
     decision_level_breaks: Vec<Variable>,
 }
 
@@ -10,12 +11,13 @@ impl History {
     pub fn new(num_vars: Variable) -> Self {
         Self {
             assignments: Vec::with_capacity(num_vars),
+            next_to_propogate: 0,
             decision_level_breaks: Vec::new(),
         }
     }
 
-    pub fn add(&mut self, var: Variable) {
-        self.assignments.push(var);
+    pub fn add(&mut self, literal: Literal) {
+        self.assignments.push(literal);
     }
 
     pub fn new_decision_level(&mut self) {
@@ -25,15 +27,27 @@ impl History {
     pub fn revert_to(&mut self, level: DecisionLevel, assignments: &mut Assignments) {
         if level < self.decision_level_breaks.len() {
             let new_end = self.decision_level_breaks[level];
-            for var in self.assignments.drain(new_end..) {
-                assignments.remove(var);
+            for literal in self.assignments.drain(new_end..) {
+                assignments.remove(literal.var());
             }
             self.decision_level_breaks.truncate(level);
+            self.next_to_propogate = std::cmp::min(self.next_to_propogate, new_end);
         }
     }
 
     pub fn num_assigned(&self) -> usize {
         self.assignments.len()
+    }
+
+    #[must_use]
+    pub fn next_to_propogate(&mut self) -> Option<Literal> {
+        self.assignments
+            .get(self.next_to_propogate)
+            .copied()
+            .map(|literal| {
+                self.next_to_propogate += 1;
+                literal
+            })
     }
 }
 
