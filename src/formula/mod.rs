@@ -21,10 +21,10 @@ impl Formula {
     pub fn parse_and_solve(
         lines: impl IntoIterator<Item = impl AsRef<str>>,
     ) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
-        Self::parse(lines).map(Solver::solve_formula)
+        Self::parse(lines).and_then(Solver::solve_formula)
     }
 
-    pub fn solve(self) -> Solution<impl IntoIterator<Item = (Variable, Sign)>> {
+    pub fn solve(self) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
         Solver::solve_formula(self)
     }
 

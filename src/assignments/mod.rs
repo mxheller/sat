@@ -18,8 +18,22 @@ impl Assignments {
         }
     }
 
+    #[cfg(test)]
+    pub fn new_with(signs: Vec<Option<Sign>>) -> Self {
+        let mut x = Self::new(signs.len());
+        for (i, sign) in signs.into_iter().enumerate() {
+            sign.map(|sign| x.set_unchecked(i, sign));
+        }
+        x
+    }
+
     pub fn get(&self, var: Variable) -> Option<&Assignment> {
         self.assignments[var as usize].as_ref()
+    }
+
+    #[cfg(test)]
+    pub fn set_unchecked(&mut self, var: Variable, sign: Sign) {
+        self.assignments[var as usize] = Some(Assignment::decided(sign, 0));
     }
 
     pub fn set(

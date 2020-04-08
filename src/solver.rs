@@ -28,7 +28,7 @@ pub enum Status {
 impl Solver {
     pub fn solve_formula(
         formula: impl Into<formula::Formula>,
-    ) -> Solution<impl IntoIterator<Item = (Variable, Sign)>> {
+    ) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
         let formula = formula.into();
 
         // Create mapping from [0, numVars) -> Variable
@@ -59,43 +59,56 @@ impl Solver {
                 .map(|literal| Literal::new(map[&literal.var()], literal.sign()));
 
             // Add clause to trimmed formula
-            if let Status::Conflict(_) = solver.learn_clause(literals) {
-                return Solution::Unsat;
+            if let Status::Conflict(_) = solver.learn_clause(literals)? {
+                return Ok(Solution::Unsat);
             }
         }
 
-        match solver.solve() {
+        Ok(match solver.solve()? {
             Solution::Unsat => Solution::Unsat,
             Solution::Sat(assignments) => Solution::Sat(
                 assignments
                     .into_iter()
                     .map(move |(var, sign)| (variables[var as usize], sign)),
             ),
-        }
+        })
     }
 
-    fn solve(mut self) -> Solution<impl IntoIterator<Item = (Variable, Sign)>> {
+    fn solve(mut self) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
         while !self.all_variables_assigned() {
             match self.propogate_all() {
                 Status::Ok => {
                     let choice = self.pick_branching_variable();
                     assert!(matches!(self.assign_decided(choice), Status::Ok));
                 }
-                Status::Conflict(c) => match self.analyze_conflict(c) {
+                Status::Conflict(c) => match self.analyze_conflict(c)? {
                     Some((learned, level)) => {
                         println!("backtracking to {}, learning {:?}", level, learned);
                         self.backtrack(level);
-                        assert!(!matches!(
+                        print!("assignments (post-backtrack):");
+                        for (var, assignment) in learned
+                            .implied(&self.assignments)
+                            .map(|(lit, a)| (lit.var(), a))
+                        {
+                            print!(
+                                " {}{}@{}",
+                                assignment.sign(),
+                                var,
+                                assignment.decision_level()
+                            );
+                        }
+                        println!();
+                        assert!(matches!(
                             self.learn_clause(learned.into_iter()),
-                            Status::Conflict(_)
+                            Ok(Status::Ok)
                         ));
                     }
-                    None => return Solution::Unsat,
+                    None => return Ok(Solution::Unsat),
                 },
             }
         }
 
-        Solution::Sat(self.assignments.assignments())
+        Ok(Solution::Sat(self.assignments.assignments()))
     }
 
     fn new_decision_level(&mut self) {
@@ -104,6 +117,7 @@ impl Solver {
     }
 
     fn assign_decided(&mut self, literal: Literal) -> Status {
+        println!("Decided: {:?}", literal);
         self.assignments.set(
             literal.var(),
             Assignment::decided(literal.sign(), self.decision_level),
@@ -113,6 +127,7 @@ impl Solver {
     }
 
     fn assign_implied(&mut self, literal: Literal, antecedent: ClauseIdx) -> Status {
+        println!("Implied: {:?}", literal);
         self.assignments.set(
             literal.var(),
             Assignment::implied(literal.sign(), antecedent, self.decision_level),
@@ -122,6 +137,7 @@ impl Solver {
     }
 
     fn assign_invariant(&mut self, literal: Literal) -> Status {
+        println!("Invariant: {:?}", literal);
         self.assignments.set_invariant(
             literal.var(),
             literal.sign(),
@@ -164,23 +180,23 @@ impl Solver {
     fn learn_clause(
         &mut self,
         mut clause: impl Iterator<Item = Literal> + ExactSizeIterator,
-    ) -> Status {
+    ) -> Result<Status, String> {
         match clause.len() {
-            0 => panic!("Trying to learn an empty (unsat) clause"),
+            0 => Ok(Status::Conflict(formula::Clause::empty())),
             1 => {
                 let unit = clause.next().unwrap();
-                self.assign_invariant(unit)
+                Ok(self.assign_invariant(unit))
             }
             _ => {
                 let (clause, status) =
                     self.formula
-                        .add_clause(clause, &mut self.watched, &self.assignments);
+                        .add_clause(clause, &mut self.watched, &self.assignments)?;
 
-                match status {
+                Ok(match status {
                     clause::Status::Ok => Status::Ok,
                     clause::Status::Conflict(c) => Status::Conflict(c),
                     clause::Status::Implied(literal) => self.assign_implied(literal, clause),
-                }
+                })
             }
         }
     }
@@ -201,18 +217,24 @@ impl Solver {
     fn analyze_conflict(
         &self,
         mut clause: formula::Clause,
-    ) -> Option<(formula::Clause, DecisionLevel)> {
+    ) -> Result<Option<(formula::Clause, DecisionLevel)>, String> {
         let (level, assignments) = (self.decision_level, &self.assignments);
 
         println!("\n\nconflict at level {}: {:?}", level, &clause);
-        println!(
-            "assignments: {:?}",
-            clause.assignments(assignments).collect::<Vec<_>>()
-        );
+        print!("assignments:");
+        for (var, assignment) in clause.implied(assignments).map(|(lit, a)| (lit.var(), a)) {
+            print!(
+                " {}{}@{}",
+                assignment.sign(),
+                var,
+                assignment.decision_level()
+            );
+        }
+        println!();
 
         if level == 0 {
             // Cannot backtrack any farther
-            return None;
+            return Ok(None);
         }
 
         // Ensure there is at least one literal assigned at the conflict level
@@ -225,7 +247,7 @@ impl Solver {
         );
 
         loop {
-            let mut at_level = clause.assignments_at(level, assignments);
+            let mut at_level = clause.implied_at(level, assignments);
             if let (Some(a), Some(b)) = (at_level.next(), at_level.next()) {
                 let (literal, assignment) = match (a.1.antecedent(), b.1.antecedent()) {
                     (Some(_), _) => a,
@@ -236,16 +258,16 @@ impl Solver {
                 };
                 let antecedent = assignment.antecedent().unwrap();
                 drop(at_level);
-                clause.resolve(literal, &self.formula[antecedent]);
+                clause.resolve(literal, &self.formula[antecedent])?;
             } else {
                 // At most one literal assigned at conflict level
                 break;
             }
         }
 
-        clause
+        Ok(clause
             .backtrack_level(level, assignments)
-            .map(|level| (clause, level))
+            .map(|level| (clause, level)))
     }
 
     fn backtrack(&mut self, level: usize) {

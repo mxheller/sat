@@ -22,8 +22,8 @@ impl TrimmedFormula {
         literals: impl Iterator<Item = Literal> + ExactSizeIterator,
         watched: &mut Watched,
         assignments: &Assignments,
-    ) -> (ClauseIdx, Status) {
-        let clause = Clause::new(literals);
+    ) -> Result<(ClauseIdx, Status), String> {
+        let clause = Clause::new(literals)?;
         let idx = self.clauses.len();
         match &clause {
             Clause::Binary { a, b } => {
@@ -37,7 +37,7 @@ impl TrimmedFormula {
         }
         let idx = self.clauses.len();
         self.clauses.push(clause);
-        (idx, self.clauses[idx].update(watched, assignments, idx))
+        Ok((idx, self.clauses[idx].update(watched, assignments, idx)))
     }
 }
 

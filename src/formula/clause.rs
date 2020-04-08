@@ -1,12 +1,18 @@
 use crate::{trimmed_formula, Assignment, Assignments, DecisionLevel, Evaluate, Literal, Variable};
 use std::collections::BTreeSet;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Clause {
     literals: BTreeSet<Literal>,
 }
 
 impl Clause {
+    pub fn empty() -> Self {
+        Self {
+            literals: BTreeSet::new(),
+        }
+    }
+
     pub fn new(literals: BTreeSet<Literal>) -> Self {
         Self { literals }
     }
@@ -23,7 +29,11 @@ impl Clause {
         self.literals.contains(&literal)
     }
 
-    pub fn resolve(&mut self, literal: Literal, other: &trimmed_formula::Clause) {
+    pub fn resolve(
+        &mut self,
+        literal: Literal,
+        other: &trimmed_formula::Clause,
+    ) -> Result<(), String> {
         assert!(self.literals.remove(&literal));
 
         match other {
@@ -37,20 +47,22 @@ impl Clause {
                 self.literals
                     .extend(literals.iter().copied().filter(|x| *x != !literal));
             }
-            _ => panic!("'antecedent' clause wasn't actually antecedent"),
+            _ => return Err("'antecedent' clause wasn't actually antecedent".to_string()),
         }
+
+        Ok(())
     }
 
-    pub fn assignments_at<'a>(
+    pub fn implied_at<'a>(
         &'a self,
         level: DecisionLevel,
         assignments: &'a Assignments,
     ) -> impl Iterator<Item = (Literal, &Assignment)> + 'a {
-        self.assignments(assignments)
+        self.implied(assignments)
             .filter(move |(_, assignment)| assignment.decision_level() == level)
     }
 
-    pub fn assignments<'a>(
+    pub fn implied<'a>(
         &'a self,
         assignments: &'a Assignments,
     ) -> impl Iterator<Item = (Literal, &Assignment)> + 'a {
