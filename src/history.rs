@@ -53,13 +53,18 @@ impl History {
 
 #[test]
 fn rewriting_history() {
-    use crate::{assignments::Assignment, sign::Sign};
+    use crate::{
+        assignments::Assignment,
+        sign::Sign::{Negative, Positive},
+        trimmed_formula::TrimmedFormula,
+    };
 
+    let formula = TrimmedFormula::new(0);
     let mut history = History::new(5);
     let mut assignments = Assignments::new(5);
 
     let mut set = |history: &mut History, level, var| {
-        assignments.set(var, Assignment::decided(Sign::Positive, level), history);
+        assignments.set(var, Assignment::decided(Positive, level), &formula, history);
     };
 
     // Decision level 0
@@ -78,7 +83,7 @@ fn rewriting_history() {
     {
         let (mut history, mut assignments) = (history.clone(), assignments.clone());
         history.revert_to(0, &mut assignments);
-        assert_eq!(history.assignments, vec![0]);
+        assert_eq!(history.assignments, vec![Literal::new(0, Positive)]);
         assert_eq!(history.decision_level_breaks, vec![]);
 
         assert!(matches!(assignments.get(1), None));
@@ -87,11 +92,27 @@ fn rewriting_history() {
     {
         let (mut history, mut assignments) = (history.clone(), assignments.clone());
         history.revert_to(1, &mut assignments);
-        assert_eq!(history.assignments, vec![0, 1, 2]);
+        assert_eq!(
+            history.assignments,
+            vec![
+                Literal::new(0, Positive),
+                Literal::new(1, Positive),
+                Literal::new(2, Positive)
+            ]
+        );
         assert_eq!(history.decision_level_breaks, vec![1]);
     }
 
     history.revert_to(2, &mut assignments);
-    assert_eq!(history.assignments, vec![0, 1, 2, 3, 4]);
+    assert_eq!(
+        history.assignments,
+        vec![
+            Literal::new(0, Positive),
+            Literal::new(1, Positive),
+            Literal::new(2, Positive),
+            Literal::new(3, Positive),
+            Literal::new(4, Positive)
+        ]
+    );
     assert_eq!(history.decision_level_breaks, vec![1, 3]);
 }
