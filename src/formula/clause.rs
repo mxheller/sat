@@ -1,4 +1,4 @@
-use crate::{trimmed_formula, Assignments, DecisionLevel, Evaluate, Literal, Variable};
+use crate::{trimmed_formula, Assignment, Assignments, DecisionLevel, Evaluate, Literal, Variable};
 use std::collections::BTreeSet;
 
 pub struct Clause {
@@ -52,17 +52,18 @@ impl Clause {
         }
     }
 
-    pub fn literals_assigned_at<'a>(
+    pub fn assignments_at<'a>(
         &'a self,
         level: DecisionLevel,
         assignments: &'a Assignments,
-    ) -> impl Iterator<Item = Literal> + 'a {
-        self.literals().filter(move |literal| {
-            assignments
-                .get(literal.var())
-                .map(|assignment| assignment.decision_level() == level)
-                .unwrap_or(false)
-        })
+    ) -> impl Iterator<Item = (Literal, &Assignment)> + 'a {
+        self.literals()
+            .filter_map(move |literal| {
+                assignments
+                    .get(literal.var())
+                    .map(|assignment| (literal, assignment))
+            })
+            .filter(move |(_, assignment)| assignment.decision_level() == level)
     }
 
     /// Returns a decision level from which the clause can still be satisfied

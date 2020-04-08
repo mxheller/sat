@@ -164,20 +164,16 @@ impl Solver {
             return None;
         }
 
-        while clause.literals_assigned_at(level, assignments).count() > 1 {
-            // TODO: this ^ conditional can probably be combined with the below
-            // section using equation 4.18
-
-            let antecedent = clause.literals().find_map(|literal| {
-                assignments.get(literal.var()).and_then(|assignment| {
-                    if assignment.decision_level() == level {
-                        assignment.antecedent()
-                    } else {
-                        None
-                    }
-                })
-            });
-            clause.resolve(&self.formula[antecedent.unwrap()]);
+        loop {
+            let mut at_level = clause.assignments_at(level, assignments);
+            if let (Some((_, assignment)), Some(_)) = (at_level.next(), at_level.next()) {
+                let antecedent = assignment.antecedent().unwrap();
+                drop(at_level);
+                clause.resolve(&self.formula[antecedent]);
+            } else {
+                // At most one literal assigned at conflict level
+                break;
+            }
         }
 
         clause
