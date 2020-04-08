@@ -57,8 +57,8 @@ impl Solver {
 
     fn solve(mut self) -> Solution {
         while !self.all_variables_assigned() {
-            let literal = self.pick_branching_variable();
             self.new_decision_level();
+            let literal = self.pick_branching_variable();
 
             if let Status::Conflict(c) = self.assign_and_propogate_decided(literal) {
                 if let Some((learned, level)) = self.analyze_conflict(c) {
@@ -181,7 +181,7 @@ impl Solver {
         }
 
         clause
-            .satisfiable_level(assignments)
+            .backtrack_level(level, assignments)
             .map(|level| (clause, level))
     }
 
