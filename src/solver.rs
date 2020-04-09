@@ -1,7 +1,8 @@
 use crate::{
     formula,
     trimmed_formula::{clause, TrimmedFormula},
-    Assignment, Assignments, ClauseIdx, DecisionLevel, History, Literal, Sign, Variable, Watched,
+    Assignment, Assignments, ClauseIdx, Counters, DecisionLevel, History, Literal, Sign, Variable,
+    Watched,
 };
 use std::collections::BTreeMap;
 
@@ -9,6 +10,7 @@ pub struct Solver {
     decision_level: usize,
     num_variables: usize,
     formula: TrimmedFormula,
+    counters: Counters,
     assignments: Assignments,
     history: History,
     watched: Watched,
@@ -45,6 +47,7 @@ impl Solver {
 
         let mut solver = Self {
             formula: TrimmedFormula::new(formula.clauses.len()),
+            counters: Counters::new(num_variables),
             assignments: Assignments::new(num_variables),
             history: History::new(num_variables),
             watched: Watched::new(num_variables),
@@ -81,26 +84,11 @@ impl Solver {
                     if self.all_variables_assigned() {
                         break;
                     }
-                    let choice = self.pick_branching_variable();
-                    assert!(matches!(self.assign_decided(choice), Status::Ok));
+                    self.branch()?;
                 }
                 Status::Conflict(c) => match self.analyze_conflict(c)? {
                     Some((learned, level)) => {
-                        println!("backtracking to {}, learning {:?}", level, learned);
                         self.backtrack(level);
-                        print!("assignments (post-backtrack):");
-                        for (var, assignment) in learned
-                            .implied(&self.assignments)
-                            .map(|(lit, a)| (lit.var(), a))
-                        {
-                            print!(
-                                " {}{}@{}",
-                                assignment.sign(),
-                                var,
-                                assignment.decision_level()
-                            );
-                        }
-                        println!();
                         assert!(matches!(
                             self.learn_clause(learned.into_iter()),
                             Ok(Status::Ok)
@@ -120,7 +108,6 @@ impl Solver {
     }
 
     fn assign_decided(&mut self, literal: Literal) -> Status {
-        println!("Decided: {:?}", literal);
         self.assignments.set(
             literal.var(),
             Assignment::decided(literal.sign(), self.decision_level),
@@ -130,7 +117,6 @@ impl Solver {
     }
 
     fn assign_implied(&mut self, literal: Literal, antecedent: ClauseIdx) -> Status {
-        println!("Implied: {:?}", literal);
         self.assignments.set(
             literal.var(),
             Assignment::implied(literal.sign(), antecedent, self.decision_level),
@@ -140,7 +126,6 @@ impl Solver {
     }
 
     fn assign_invariant(&mut self, literal: Literal) -> Status {
-        println!("Invariant: {:?}", literal);
         self.assignments.set_invariant(
             literal.var(),
             literal.sign(),
@@ -188,12 +173,16 @@ impl Solver {
             0 => Ok(Status::Conflict(formula::Clause::empty())),
             1 => {
                 let unit = clause.next().unwrap();
+                self.counters.increment(unit);
                 Ok(self.assign_invariant(unit))
             }
             _ => {
-                let (clause, status) =
-                    self.formula
-                        .add_clause(clause, &mut self.watched, &self.assignments)?;
+                let (clause, status) = self.formula.add_clause(
+                    clause,
+                    &mut self.watched,
+                    &mut self.counters,
+                    &self.assignments,
+                )?;
 
                 Ok(match status {
                     clause::Status::Ok => Status::Ok,
@@ -208,14 +197,16 @@ impl Solver {
         self.history.num_assigned() == self.num_variables
     }
 
-    fn pick_branching_variable(&mut self) -> Literal {
+    fn branch(&mut self) -> Result<(), String> {
         self.new_decision_level();
-        println!("history: {:?}", self.history);
-        // TODO: smart
-        (0..self.num_variables)
-            .find(|var| matches!(self.assignments.get(*var), None))
-            .map(|var| Literal::new(var, false))
-            .unwrap()
+        let choice = self
+            .counters
+            .next_decision(&self.assignments)
+            .ok_or_else(|| "No variable to branch on".to_owned())?;
+        match self.assign_decided(choice) {
+            Status::Ok => Ok(()),
+            Status::Conflict(_) => Err("Branched on already decided variable".to_owned()),
+        }
     }
 
     fn analyze_conflict(
@@ -223,18 +214,6 @@ impl Solver {
         mut clause: formula::Clause,
     ) -> Result<Option<(formula::Clause, DecisionLevel)>, String> {
         let (level, assignments) = (self.decision_level, &self.assignments);
-
-        println!("\n\nconflict at level {}: {:?}", level, &clause);
-        print!("assignments:");
-        for (var, assignment) in clause.implied(assignments).map(|(lit, a)| (lit.var(), a)) {
-            print!(
-                " {}{}@{}",
-                assignment.sign(),
-                var,
-                assignment.decision_level()
-            );
-        }
-        println!();
 
         // Ensure there is at least one literal assigned at the conflict level
         debug_assert_ne!(
@@ -245,7 +224,11 @@ impl Solver {
             "There should be at least one literal assigned at the conflict level in the conflict clause"
         );
 
-        for literal in self.history.most_recently_assigned_at_current_level() {
+        if level == 0 {
+            return Ok(None);
+        }
+
+        for literal in self.history.most_recently_implied_at_current_level() {
             if clause.implied_at(level, assignments).count() <= 1 {
                 break;
             }
@@ -253,9 +236,18 @@ impl Solver {
                 let antecedent = assignments
                     .get(literal.var())
                     .and_then(Assignment::antecedent)
-                    .unwrap();
+                    .ok_or_else(|| {
+                        println!(
+                            "Assignment at level {}: {:?}",
+                            level,
+                            assignments.get(literal.var())
+                        );
+                        format!(
+                            "Supposedly implied literal {} was unassigned or had no antecedent",
+                            literal
+                        )
+                    })?;
                 clause.resolve(!literal, &self.formula[antecedent])?;
-                println!("Resolved with {}: {:?}", literal, &clause);
             }
         }
 

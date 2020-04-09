@@ -50,11 +50,18 @@ impl History {
             })
     }
 
-    pub fn most_recently_assigned_at_current_level<'a>(
+    pub fn most_recently_implied_at_current_level<'a>(
         &'a self,
     ) -> impl Iterator<Item = Literal> + 'a {
-        let first = self.decision_level_breaks.last().unwrap();
-        self.assignments[*first..].iter().copied().rev()
+        assert!(
+            !self.decision_level_breaks.is_empty(),
+            "trying to find implied literals at level 0"
+        );
+
+        // Find the first implied assignment, which is one after the decided
+        // assignment at the current level
+        let first = self.decision_level_breaks.last().unwrap() + 1;
+        self.assignments[first..].iter().copied().rev()
     }
 }
 
@@ -63,8 +70,8 @@ fn rewriting_history() {
     use crate::{assignments::Assignment, sign::Sign::Positive, trimmed_formula::TrimmedFormula};
 
     let formula = TrimmedFormula::new(0);
-    let mut history = History::new(5);
-    let mut assignments = Assignments::new(5);
+    let mut history = History::new(6);
+    let mut assignments = Assignments::new(6);
 
     let mut set = |history: &mut History, level, var| {
         let _ = assignments.set(var, Assignment::decided(Positive, level), &formula, history);
@@ -81,12 +88,23 @@ fn rewriting_history() {
     // Decision level 2
     history.new_decision_level();
     set(&mut history, 2, 3);
-    set(&mut history, 2, 4);
+    let _ = assignments.set(
+        4,
+        Assignment::implied(Positive, 0, 2),
+        &formula,
+        &mut history,
+    );
+    let _ = assignments.set(
+        5,
+        Assignment::implied(Positive, 0, 2),
+        &formula,
+        &mut history,
+    );
     assert_eq!(
         history
-            .most_recently_assigned_at_current_level()
+            .most_recently_implied_at_current_level()
             .collect::<Vec<_>>(),
-        vec![Literal::new(4, Positive), Literal::new(3, Positive)]
+        vec![Literal::new(5, Positive), Literal::new(4, Positive)]
     );
 
     {
@@ -120,7 +138,8 @@ fn rewriting_history() {
             Literal::new(1, Positive),
             Literal::new(2, Positive),
             Literal::new(3, Positive),
-            Literal::new(4, Positive)
+            Literal::new(4, Positive),
+            Literal::new(5, Positive)
         ]
     );
     assert_eq!(history.decision_level_breaks, vec![1, 3]);

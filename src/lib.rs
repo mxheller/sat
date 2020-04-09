@@ -1,4 +1,5 @@
 mod assignments;
+mod counters;
 mod formula;
 mod history;
 mod literal;
@@ -8,6 +9,7 @@ mod trimmed_formula;
 mod watched;
 
 use assignments::{Assignment, Assignments};
+use counters::Counters;
 pub use formula::Formula;
 use history::History;
 use literal::Literal;

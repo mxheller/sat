@@ -16,6 +16,16 @@ impl Literal {
     }
 
     #[inline]
+    pub(crate) fn from_code(code: Variable) -> Self {
+        Self { code }
+    }
+
+    #[inline]
+    pub(crate) fn code(self) -> Variable {
+        self.code
+    }
+
+    #[inline]
     pub fn var(self) -> Variable {
         self.code >> 1
     }

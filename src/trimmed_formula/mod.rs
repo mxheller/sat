@@ -1,4 +1,4 @@
-use crate::{Assignments, ClauseIdx, Literal, Watched};
+use crate::{Assignments, ClauseIdx, Counters, Literal, Watched};
 use std::ops::{Index, IndexMut};
 
 pub mod clause;
@@ -21,8 +21,10 @@ impl TrimmedFormula {
         &mut self,
         literals: impl Iterator<Item = Literal> + ExactSizeIterator,
         watched: &mut Watched,
+        counters: &mut Counters,
         assignments: &Assignments,
     ) -> Result<(ClauseIdx, Status), String> {
+        let literals = literals.inspect(|literal| counters.increment(*literal));
         let clause = Clause::new(literals)?;
         let idx = self.clauses.len();
         match &clause {
@@ -61,14 +63,17 @@ fn add_clause() -> Result<(), String> {
 
     let mut formula = TrimmedFormula::new(2);
     let watched = &mut Watched::new(2);
+    let counters = &mut Counters::new(2);
     let assignments = &mut Assignments::new(2);
 
     let (l0, l1) = (Literal::new(0, Positive), Literal::new(1, Positive));
 
     assert_eq!(
-        formula.add_clause([l0, l1].iter().copied(), watched, assignments)?,
+        formula.add_clause([l0, l1].iter().copied(), watched, counters, assignments)?,
         (0, Status::Ok)
     );
+    assert_eq!(counters[l0], 1);
+    assert_eq!(counters[l1], 1);
     assert!(watched[l0].contains(&0));
     assert!(watched[l1].contains(&0));
     assert!(watched[!l0].is_empty());
@@ -77,9 +82,12 @@ fn add_clause() -> Result<(), String> {
 
     assignments.set_unchecked(0, Positive);
     assert_eq!(
-        formula.add_clause([!l0, l1].iter().copied(), watched, assignments)?,
+        formula.add_clause([!l0, l1].iter().copied(), watched, counters, assignments)?,
         (1, Status::Implied(l1))
     );
+    assert_eq!(counters[l0], 1);
+    assert_eq!(counters[!l0], 1);
+    assert_eq!(counters[l1], 2);
     assert!(watched[l0].contains(&0));
     assert_eq!(watched[l0].len(), 1);
     assert!(watched[l1].contains(&0));
