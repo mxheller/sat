@@ -55,3 +55,13 @@ impl From<Vec<Vec<Literal>>> for Formula {
         }
     }
 }
+
+impl From<Vec<Vec<isize>>> for Formula {
+    fn from(clauses: Vec<Vec<isize>>) -> Self {
+        clauses
+            .into_iter()
+            .map(|clause| clause.into_iter().map(Literal::from).collect::<Vec<_>>())
+            .collect::<Vec<_>>()
+            .into()
+    }
+}

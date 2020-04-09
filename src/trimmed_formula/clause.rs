@@ -43,10 +43,7 @@ impl Clause {
                 (None, Some(false)) => Status::Implied(*a),
                 (Some(false), None) => Status::Implied(*b),
                 (Some(false), Some(false)) => Status::Conflict(self.get_literals()),
-                (None, None) => {
-                    dbg!("Neither watched literal was affected");
-                    Status::Ok
-                }
+                (None, None) => Status::Ok,
             },
             Self::Many { ref mut literals } => {
                 // Determines the value of a literal in the current assignment

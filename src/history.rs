@@ -49,6 +49,13 @@ impl History {
                 literal
             })
     }
+
+    pub fn most_recently_assigned_at_current_level<'a>(
+        &'a self,
+    ) -> impl Iterator<Item = Literal> + 'a {
+        let first = self.decision_level_breaks.last().unwrap();
+        self.assignments[*first..].iter().copied().rev()
+    }
 }
 
 #[test]
@@ -75,6 +82,12 @@ fn rewriting_history() {
     history.new_decision_level();
     set(&mut history, 2, 3);
     set(&mut history, 2, 4);
+    assert_eq!(
+        history
+            .most_recently_assigned_at_current_level()
+            .collect::<Vec<_>>(),
+        vec![Literal::new(4, Positive), Literal::new(3, Positive)]
+    );
 
     {
         let (mut history, mut assignments) = (history.clone(), assignments.clone());

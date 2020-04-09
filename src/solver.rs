@@ -214,7 +214,7 @@ impl Solver {
         // TODO: smart
         (0..self.num_variables)
             .find(|var| matches!(self.assignments.get(*var), None))
-            .map(|var| Literal::new(var, true))
+            .map(|var| Literal::new(var, false))
             .unwrap()
     }
 
@@ -245,22 +245,17 @@ impl Solver {
             "There should be at least one literal assigned at the conflict level in the conflict clause"
         );
 
-        loop {
-            let mut at_level = clause.implied_at(level, assignments);
-            if let (Some(a), Some(b)) = (at_level.next(), at_level.next()) {
-                let (literal, assignment) = match (a.1.antecedent(), b.1.antecedent()) {
-                    (Some(_), _) => a,
-                    (None, Some(_)) => b,
-
-                    // Would mean we decided two vars at current level
-                    (None, None) => unreachable!(),
-                };
-                let antecedent = assignment.antecedent().unwrap();
-                drop(at_level);
-                clause.resolve(literal, &self.formula[antecedent])?;
-            } else {
-                // At most one literal assigned at conflict level
+        for literal in self.history.most_recently_assigned_at_current_level() {
+            if clause.implied_at(level, assignments).count() <= 1 {
                 break;
+            }
+            if clause.contains(!literal) {
+                let antecedent = assignments
+                    .get(literal.var())
+                    .and_then(Assignment::antecedent)
+                    .unwrap();
+                clause.resolve(!literal, &self.formula[antecedent])?;
+                println!("Resolved with {}: {:?}", literal, &clause);
             }
         }
 
@@ -291,11 +286,26 @@ fn all_variables_assigned_after_propogating() -> Result<(), String> {
     match formula.solve()? {
         Solution::Unsat => Err("Expected Sat, got Unsat".to_string()),
         Solution::Sat(assignment) => {
-            assert_eq!(
-                assignment.into_iter().collect::<Vec<_>>(),
-                vec![(0, Sign::Positive), (1, Sign::Positive)]
-            );
+            let assignments = assignment.into_iter().collect::<Vec<_>>();
+            assert!(assignments
+                .iter()
+                .any(|(var, sign)| *var == 1 && *sign == Sign::Positive));
+            assert!(assignments.iter().any(|(var, _)| *var == 0));
             Ok(())
         }
     }
+}
+
+#[test]
+fn learning() -> Result<(), String> {
+    let formula: formula::Formula = vec![
+        vec![4, 2, -5],
+        vec![4, -6],
+        vec![5, 6, 7],
+        vec![-7, -8],
+        vec![1, -7, -9],
+        vec![8, 9],
+    ]
+    .into();
+    formula.solve().map(|_| ())
 }

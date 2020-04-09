@@ -25,6 +25,10 @@ impl Clause {
         self.literals().map(Literal::var)
     }
 
+    pub fn contains(&self, literal: Literal) -> bool {
+        self.literals.contains(&literal)
+    }
+
     pub fn resolve(
         &mut self,
         literal: Literal,
