@@ -47,3 +47,11 @@ impl Formula {
         vars
     }
 }
+
+impl From<Vec<Vec<Literal>>> for Formula {
+    fn from(clauses: Vec<Vec<Literal>>) -> Self {
+        Self {
+            clauses: clauses.into_iter().map(|v| v.into()).collect(),
+        }
+    }
+}

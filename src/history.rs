@@ -53,18 +53,14 @@ impl History {
 
 #[test]
 fn rewriting_history() {
-    use crate::{
-        assignments::Assignment,
-        sign::Sign::{Negative, Positive},
-        trimmed_formula::TrimmedFormula,
-    };
+    use crate::{assignments::Assignment, sign::Sign::Positive, trimmed_formula::TrimmedFormula};
 
     let formula = TrimmedFormula::new(0);
     let mut history = History::new(5);
     let mut assignments = Assignments::new(5);
 
     let mut set = |history: &mut History, level, var| {
-        assignments.set(var, Assignment::decided(Positive, level), &formula, history);
+        let _ = assignments.set(var, Assignment::decided(Positive, level), &formula, history);
     };
 
     // Decision level 0

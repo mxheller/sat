@@ -25,10 +25,6 @@ impl Clause {
         self.literals().map(Literal::var)
     }
 
-    pub fn contains(&self, literal: Literal) -> bool {
-        self.literals.contains(&literal)
-    }
-
     pub fn resolve(
         &mut self,
         literal: Literal,
@@ -93,11 +89,19 @@ impl Clause {
             "There should be exactly one literal assigned at the conflict level in the clause to be learned"
         );
 
-        // Return the maximum level below the conflict level
+        // Return the maximum level below the conflict level, or the previous
+        // level if the learned clause is unit
         self.variables()
             .map(|var| assignments.get(var).unwrap().decision_level())
             .filter(|level| *level != conflict_level)
             .max()
+            .or_else(|| {
+                if conflict_level > 0 {
+                    Some(conflict_level - 1)
+                } else {
+                    None
+                }
+            })
     }
 
     pub fn len(&self) -> usize {
@@ -136,5 +140,13 @@ impl From<Literal> for Clause {
         let mut literals = BTreeSet::new();
         literals.insert(literal);
         Self { literals }
+    }
+}
+
+impl From<Vec<Literal>> for Clause {
+    fn from(literals: Vec<Literal>) -> Self {
+        Self {
+            literals: literals.into_iter().collect(),
+        }
     }
 }

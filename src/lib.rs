@@ -7,18 +7,18 @@ mod solver;
 mod trimmed_formula;
 mod watched;
 
-pub use assignments::{Assignment, Assignments};
+use assignments::{Assignment, Assignments};
 pub use formula::Formula;
-pub use history::History;
-pub use literal::Literal;
+use history::History;
+use literal::Literal;
 pub use sign::Sign;
 pub use solver::{Solution, Solver};
-pub use watched::Watched;
+use watched::Watched;
 
 pub type Variable = usize;
-pub type ClauseIdx = usize;
-pub type DecisionLevel = Variable;
+type ClauseIdx = usize;
+type DecisionLevel = Variable;
 
-pub trait Evaluate {
+trait Evaluate {
     fn evaluate(&self, assignments: &Assignments) -> Option<bool>;
 }

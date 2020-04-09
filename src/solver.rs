@@ -78,6 +78,9 @@ impl Solver {
         while !self.all_variables_assigned() {
             match self.propogate_all() {
                 Status::Ok => {
+                    if self.all_variables_assigned() {
+                        break;
+                    }
                     let choice = self.pick_branching_variable();
                     assert!(matches!(self.assign_decided(choice), Status::Ok));
                 }
@@ -207,6 +210,7 @@ impl Solver {
 
     fn pick_branching_variable(&mut self) -> Literal {
         self.new_decision_level();
+        println!("history: {:?}", self.history);
         // TODO: smart
         (0..self.num_variables)
             .find(|var| matches!(self.assignments.get(*var), None))
@@ -231,11 +235,6 @@ impl Solver {
             );
         }
         println!();
-
-        if level == 0 {
-            // Cannot backtrack any farther
-            return Ok(None);
-        }
 
         // Ensure there is at least one literal assigned at the conflict level
         debug_assert_ne!(
@@ -273,5 +272,30 @@ impl Solver {
     fn backtrack(&mut self, level: usize) {
         self.decision_level = level;
         self.history.revert_to(level, &mut self.assignments);
+    }
+}
+
+#[test]
+fn all_variables_assigned_after_propogating() -> Result<(), String> {
+    let formula: formula::Formula = vec![
+        vec![
+            Literal::new(0, Sign::Positive),
+            Literal::new(1, Sign::Positive),
+        ],
+        vec![
+            Literal::new(0, Sign::Negative),
+            Literal::new(1, Sign::Positive),
+        ],
+    ]
+    .into();
+    match formula.solve()? {
+        Solution::Unsat => Err("Expected Sat, got Unsat".to_string()),
+        Solution::Sat(assignment) => {
+            assert_eq!(
+                assignment.into_iter().collect::<Vec<_>>(),
+                vec![(0, Sign::Positive), (1, Sign::Positive)]
+            );
+            Ok(())
+        }
     }
 }
