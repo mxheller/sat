@@ -1,3 +1,5 @@
+#![feature(is_sorted)]
+
 mod assignments;
 mod counters;
 mod formula;
