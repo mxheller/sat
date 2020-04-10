@@ -32,6 +32,7 @@ impl Counters {
                 *count = new;
             }
             None => {
+                println!("Rescaling");
                 self.counters.iter_mut().for_each(|count| *count /= 2);
                 let mut tmp = BTreeSet::new();
                 std::mem::swap(&mut self.ordered, &mut tmp);
