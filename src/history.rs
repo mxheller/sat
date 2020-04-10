@@ -3,6 +3,7 @@ use crate::{Assignments, DecisionLevel, Literal, Variable};
 #[derive(Clone, Debug)]
 pub struct History {
     assignments: Vec<Literal>,
+    invariants_assigned: Variable,
     next_to_propogate: usize,
     decision_level_breaks: Vec<Variable>,
 }
@@ -11,6 +12,7 @@ impl History {
     pub fn new(num_vars: Variable) -> Self {
         Self {
             assignments: Vec::with_capacity(num_vars),
+            invariants_assigned: 0,
             next_to_propogate: 0,
             decision_level_breaks: Vec::new(),
         }
@@ -18,6 +20,10 @@ impl History {
 
     pub fn add(&mut self, literal: Literal) {
         self.assignments.push(literal);
+    }
+
+    pub fn add_invariant(&mut self) {
+        self.invariants_assigned += 1;
     }
 
     pub fn new_decision_level(&mut self) {
@@ -36,7 +42,7 @@ impl History {
     }
 
     pub fn num_assigned(&self) -> usize {
-        self.assignments.len()
+        self.assignments.len() + self.invariants_assigned
     }
 
     #[must_use]

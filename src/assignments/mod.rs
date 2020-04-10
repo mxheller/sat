@@ -45,7 +45,11 @@ impl Assignments {
     ) -> Status {
         match self.get(var) {
             None => {
-                history.add(Literal::new(var, assignment.sign()));
+                if assignment.decision_level() == 0 {
+                    history.add_invariant();
+                } else {
+                    history.add(Literal::new(var, assignment.sign()));
+                }
                 self.assignments[var] = Some(assignment);
                 Status::Ok
             }
