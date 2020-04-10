@@ -1,8 +1,9 @@
 use crate::{Assignments, ClauseIdx, Literal, Variable};
-use std::ops::Index;
+use std::{collections::BTreeSet, ops::Index};
 
 pub struct Counters {
     counters: Vec<ClauseIdx>,
+    ordered: BTreeSet<(ClauseIdx, Literal)>,
 }
 
 impl Counters {
@@ -10,25 +11,35 @@ impl Counters {
         // Initialize two counters for each variable (one for each polarity)
         Self {
             counters: vec![0; num_vars * 2 as usize],
+            ordered: BTreeSet::new(),
         }
     }
 
     pub fn next_decision(&self, assignments: &Assignments) -> Option<Literal> {
-        self.counters
+        self.ordered
             .iter()
-            .enumerate()
-            .map(|(code, count)| (Literal::from_code(code), count))
-            .filter(|(lit, _)| assignments.get(lit.var()).is_none())
-            .max_by_key(|pair| pair.1)
-            .map(|(lit, _)| lit)
+            .rev()
+            .find(|(_, lit)| assignments.get(lit.var()).is_none())
+            .map(|(_, lit)| *lit)
     }
 
     pub fn increment(&mut self, literal: Literal) {
         let count = &mut self.counters[literal.code() as usize];
         match count.checked_add(1) {
-            Some(new) => *count = new,
+            Some(new) => {
+                self.ordered.remove(&(*count, literal));
+                self.ordered.insert((new, literal));
+                *count = new;
+            }
             None => {
                 self.counters.iter_mut().for_each(|count| *count /= 2);
+                let mut tmp = BTreeSet::new();
+                std::mem::swap(&mut self.ordered, &mut tmp);
+                tmp = tmp
+                    .into_iter()
+                    .map(|(count, literal)| (count / 2, literal))
+                    .collect();
+                std::mem::swap(&mut self.ordered, &mut tmp);
                 self.increment(literal);
             }
         }
