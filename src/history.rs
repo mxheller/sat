@@ -116,7 +116,7 @@ fn rewriting_history() {
     {
         let (mut history, mut assignments) = (history.clone(), assignments.clone());
         history.revert_to(0, &mut assignments);
-        assert_eq!(history.assignments, vec![Literal::new(0, Positive)]);
+        assert_eq!(history.assignments, vec![]);
         assert_eq!(history.decision_level_breaks, vec![]);
 
         assert!(matches!(assignments.get(1), None));
@@ -127,20 +127,15 @@ fn rewriting_history() {
         history.revert_to(1, &mut assignments);
         assert_eq!(
             history.assignments,
-            vec![
-                Literal::new(0, Positive),
-                Literal::new(1, Positive),
-                Literal::new(2, Positive)
-            ]
+            vec![Literal::new(1, Positive), Literal::new(2, Positive)]
         );
-        assert_eq!(history.decision_level_breaks, vec![1]);
+        assert_eq!(history.decision_level_breaks, vec![0]);
     }
 
     history.revert_to(2, &mut assignments);
     assert_eq!(
         history.assignments,
         vec![
-            Literal::new(0, Positive),
             Literal::new(1, Positive),
             Literal::new(2, Positive),
             Literal::new(3, Positive),
@@ -148,5 +143,5 @@ fn rewriting_history() {
             Literal::new(5, Positive)
         ]
     );
-    assert_eq!(history.decision_level_breaks, vec![1, 3]);
+    assert_eq!(history.decision_level_breaks, vec![0, 2]);
 }
