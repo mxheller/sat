@@ -59,14 +59,15 @@ impl Solver {
             num_variables,
         };
 
-        for clause in formula.clauses.into_iter() {
+        for mut clause in formula.clauses.into_iter() {
             // Convert literals to new numbering
-            let literals = clause
-                .into_iter()
-                .map(|literal| Literal::new(map[&literal.var()], literal.sign()));
+            for literal in clause.iter_mut() {
+                *literal = Literal::new(map[&literal.var()], literal.sign());
+            }
 
             // Add clause to trimmed formula
-            match solver.learn_clause(literals)? {
+            let literals: Vec<Literal> = clause.into();
+            match solver.learn_clause(literals.into_iter())? {
                 Status::Ok => (),
                 _ => return Ok(Solution::Unsat),
             }

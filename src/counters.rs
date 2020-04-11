@@ -3,6 +3,7 @@ use std::ops::Index;
 
 pub type Count = ClauseIdx;
 
+#[derive(Clone, Debug)]
 pub struct Counters {
     /// Count of each literal (where each literal's code corresponds to its index)
     counts: Vec<Count>,
@@ -38,6 +39,7 @@ impl Counters {
         let count = self.counts[idx];
         self.counts[idx] += 1;
         // Find the last literal in same chunk of the sorted vec that has the same count
+        debug_assert_eq!(self.ordered[self.positions[idx]], literal);
         let target = self.ordered[self.positions[idx] + 1..]
             .iter()
             .take_while(|literal| self.counts[literal.code()] == count)
@@ -49,6 +51,7 @@ impl Counters {
             // This leaves the target in the same chunk as it was before,
             // but leaves our new literal in the right position for its count
             let target_idx = target.code();
+            debug_assert!(self.positions[target_idx] > self.positions[idx]);
             self.ordered
                 .swap(self.positions[idx], self.positions[target_idx]);
             self.positions.swap(idx, target_idx);
@@ -72,5 +75,59 @@ impl Index<Literal> for Counters {
     #[inline]
     fn index(&self, literal: Literal) -> &Self::Output {
         &self.counts[literal.code() as usize]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Counters, Literal};
+    use quickcheck::{Arbitrary, Gen};
+    use quickcheck_macros::quickcheck;
+    use rand::Rng;
+
+    impl Arbitrary for Counters {
+        fn arbitrary<G: Gen>(g: &mut G) -> Counters {
+            let num_literals = (u32::arbitrary(g) as usize) + 1;
+
+            let mut counts = Vec::with_capacity(num_literals);
+            counts.resize_with(num_literals, || usize::arbitrary(g));
+
+            let mut literals = (0..num_literals)
+                .map(Literal::from_code)
+                .collect::<Vec<_>>();
+            literals.sort_unstable_by_key(|literal| counts[literal.code()]);
+
+            let mut positions = Vec::with_capacity(num_literals);
+            positions.resize(num_literals, 0);
+            for (pos, literal) in literals.iter().enumerate() {
+                positions[literal.code()] = pos;
+            }
+
+            Counters {
+                counts,
+                positions,
+                ordered: literals,
+            }
+        }
+    }
+
+    #[quickcheck]
+    fn incrementing_preserves_invariants(mut counters: Counters) -> bool {
+        let literal = Literal::from_code(rand::thread_rng().gen_range(0, counters.counts.len()));
+        let old_count = counters.counts[literal.code()];
+
+        counters.increment(literal);
+
+        let ordered = counters
+            .ordered
+            .is_sorted_by_key(|literal| counters.counts[literal.code()]);
+        let incremented = counters.counts[literal.code()] == old_count + 1;
+        let correct_positions = counters
+            .positions
+            .iter()
+            .enumerate()
+            .all(|(idx, pos)| counters.ordered[*pos] == Literal::from_code(idx));
+
+        ordered && incremented && correct_positions
     }
 }

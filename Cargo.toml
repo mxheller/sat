@@ -11,6 +11,9 @@ fixedbitset = "^0.2"
 
 [dev-dependencies]
 criterion = "^0.3"
+quickcheck = "^0.9"
+quickcheck_macros = "^0.9"
+rand = "^0.7"
 
 [[bench]]
 name = "dubois"
