@@ -1,6 +1,7 @@
 #![feature(is_sorted)]
 
 mod assignments;
+mod conflict;
 mod counters;
 mod formula;
 mod history;
@@ -11,6 +12,7 @@ mod trimmed_formula;
 mod watched;
 
 use assignments::{Assignment, Assignments};
+use conflict::Conflict;
 use counters::Counters;
 pub use formula::Formula;
 use history::History;

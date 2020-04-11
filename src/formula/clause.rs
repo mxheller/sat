@@ -1,4 +1,4 @@
-use crate::{trimmed_formula, Assignment, Assignments, DecisionLevel, Evaluate, Literal, Variable};
+use crate::{Assignment, Assignments, DecisionLevel, Literal, Variable};
 use std::collections::BTreeSet;
 
 #[derive(Debug, PartialEq)]
@@ -29,30 +29,6 @@ impl Clause {
         self.literals.contains(&literal)
     }
 
-    pub fn resolve(
-        &mut self,
-        literal: Literal,
-        other: &trimmed_formula::Clause,
-    ) -> Result<(), String> {
-        assert!(self.literals.remove(&literal));
-
-        match other {
-            trimmed_formula::Clause::Binary { a, b } if *a == !literal => {
-                self.literals.insert(*b);
-            }
-            trimmed_formula::Clause::Binary { a, b } if *b == !literal => {
-                self.literals.insert(*a);
-            }
-            trimmed_formula::Clause::Many { literals } => {
-                self.literals
-                    .extend(literals.iter().copied().filter(|x| *x != !literal));
-            }
-            _ => return Err("'antecedent' clause wasn't actually antecedent".to_string()),
-        }
-
-        Ok(())
-    }
-
     pub fn implied_at<'a>(
         &'a self,
         level: DecisionLevel,
@@ -71,41 +47,6 @@ impl Clause {
                 .get(literal.var())
                 .map(|assignment| (literal, assignment))
         })
-    }
-
-    /// Returns a decision level from which the clause can still be satisfied
-    pub fn backtrack_level(
-        &self,
-        conflict_level: DecisionLevel,
-        assignments: &Assignments,
-    ) -> Option<DecisionLevel> {
-        // Make sure all literals are actually unsatisfied
-        debug_assert!(self
-            .literals()
-            .all(|literal| matches!(literal.evaluate(assignments), Some(false))));
-
-        // Ensure there is a single literal assigned at the conflict level
-        debug_assert_eq!(
-            self.variables()
-                .filter(|var| assignments.get(*var).unwrap().decision_level() == conflict_level)
-                .count(),
-            1,
-            "There should be exactly one literal assigned at the conflict level in the clause to be learned"
-        );
-
-        // Return the maximum level below the conflict level, or the previous
-        // level if the learned clause is unit
-        self.variables()
-            .map(|var| assignments.get(var).unwrap().decision_level())
-            .filter(|level| *level != conflict_level)
-            .max()
-            .or_else(|| {
-                if conflict_level > 0 {
-                    Some(conflict_level - 1)
-                } else {
-                    None
-                }
-            })
     }
 
     pub fn len(&self) -> usize {

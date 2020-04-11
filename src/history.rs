@@ -73,14 +73,13 @@ impl History {
 
 #[test]
 fn rewriting_history() {
-    use crate::{assignments::Assignment, sign::Sign::Positive, trimmed_formula::TrimmedFormula};
+    use crate::{Assignment, Sign::Positive};
 
-    let formula = TrimmedFormula::new(0);
     let mut history = History::new(6);
     let mut assignments = Assignments::new(6);
 
     let mut set = |history: &mut History, level, var| {
-        let _ = assignments.set(var, Assignment::decided(Positive, level), &formula, history);
+        let _ = assignments.set(var, Assignment::decided(Positive, level), history);
     };
 
     // Decision level 0
@@ -94,18 +93,8 @@ fn rewriting_history() {
     // Decision level 2
     history.new_decision_level();
     set(&mut history, 2, 3);
-    let _ = assignments.set(
-        4,
-        Assignment::implied(Positive, 0, 2),
-        &formula,
-        &mut history,
-    );
-    let _ = assignments.set(
-        5,
-        Assignment::implied(Positive, 0, 2),
-        &formula,
-        &mut history,
-    );
+    let _ = assignments.set(4, Assignment::implied(Positive, 0, 2), &mut history);
+    let _ = assignments.set(5, Assignment::implied(Positive, 0, 2), &mut history);
     assert_eq!(
         history
             .most_recently_implied_at_current_level()

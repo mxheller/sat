@@ -1,7 +1,4 @@
-use crate::{
-    formula::Clause, solver::Status, trimmed_formula::TrimmedFormula, History, Literal, Sign,
-    Variable,
-};
+use crate::{solver::Status, DecisionLevel, History, Literal, Sign, Variable};
 
 pub mod assignment;
 pub use assignment::Assignment;
@@ -18,31 +15,17 @@ impl Assignments {
         }
     }
 
-    #[cfg(test)]
-    pub fn new_with(signs: Vec<Option<Sign>>) -> Self {
-        let mut x = Self::new(signs.len());
-        for (i, sign) in signs.into_iter().enumerate() {
-            sign.map(|sign| x.set_unchecked(i, sign));
-        }
-        x
-    }
-
     pub fn get(&self, var: Variable) -> Option<&Assignment> {
         self.assignments[var as usize].as_ref()
     }
 
-    #[cfg(test)]
-    pub fn set_unchecked(&mut self, var: Variable, sign: Sign) {
-        self.assignments[var as usize] = Some(Assignment::decided(sign, 0));
+    pub fn assigned_at_level(&self, var: Variable, level: DecisionLevel) -> bool {
+        self.get(var)
+            .map(|assignment| assignment.decision_level() == level)
+            .unwrap_or(false)
     }
 
-    pub fn set(
-        &mut self,
-        var: Variable,
-        assignment: Assignment,
-        formula: &TrimmedFormula,
-        history: &mut History,
-    ) -> Status {
+    pub fn set(&mut self, var: Variable, assignment: Assignment, history: &mut History) -> Status {
         match self.get(var) {
             None => {
                 if assignment.decision_level() == 0 {
@@ -55,11 +38,12 @@ impl Assignments {
             }
             Some(existing) if existing.sign() != assignment.sign() => {
                 println!("Variable {} already assigned!", var);
-                let conflict = assignment
+                assignment
                     .antecedent()
-                    .map(|idx| formula[idx].get_literals())
-                    .unwrap_or_else(|| Clause::from(Literal::new(var, assignment.sign())));
-                Status::Conflict(conflict)
+                    .map(Status::ConflictClause)
+                    .unwrap_or_else(|| {
+                        Status::ConflictLiteral(Literal::new(var, assignment.sign()))
+                    })
             }
             _ => Status::Ok,
         }
@@ -69,10 +53,9 @@ impl Assignments {
         &mut self,
         var: Variable,
         sign: Sign,
-        formula: &TrimmedFormula,
         history: &mut History,
     ) -> Status {
-        self.set(var, Assignment::decided(sign, 0), formula, history)
+        self.set(var, Assignment::decided(sign, 0), history)
     }
 
     pub fn remove(&mut self, var: Variable) {
@@ -84,5 +67,20 @@ impl Assignments {
             .into_iter()
             .map(|assignment| assignment.unwrap().sign())
             .enumerate()
+    }
+}
+
+#[cfg(test)]
+impl Assignments {
+    pub fn new_with(signs: Vec<Option<Sign>>) -> Self {
+        let mut x = Self::new(signs.len());
+        for (i, sign) in signs.into_iter().enumerate() {
+            sign.map(|sign| x.set_unchecked(i, sign));
+        }
+        x
+    }
+
+    pub fn set_unchecked(&mut self, var: Variable, sign: Sign) {
+        self.assignments[var as usize] = Some(Assignment::decided(sign, 0));
     }
 }

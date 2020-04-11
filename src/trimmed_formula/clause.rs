@@ -1,4 +1,4 @@
-use crate::{formula, Assignments, ClauseIdx, Evaluate, Literal, Watched};
+use crate::{Assignments, ClauseIdx, Evaluate, Literal, Watched};
 
 #[derive(Debug)]
 pub enum Clause {
@@ -10,7 +10,7 @@ pub enum Clause {
 #[derive(Debug, PartialEq)]
 pub enum Status {
     Ok,
-    Conflict(formula::Clause),
+    Conflict,
     Implied(Literal),
 }
 
@@ -42,7 +42,7 @@ impl Clause {
                 (Some(true), _) | (_, Some(true)) => Status::Ok,
                 (None, Some(false)) => Status::Implied(*a),
                 (Some(false), None) => Status::Implied(*b),
-                (Some(false), Some(false)) => Status::Conflict(self.get_literals()),
+                (Some(false), Some(false)) => Status::Conflict,
                 (None, None) => Status::Ok,
             },
             Self::Many { ref mut literals } => {
@@ -68,7 +68,7 @@ impl Clause {
                     // At least one of the watched literals is false
                     _ => match (not_false.next(), not_false.next()) {
                         // There are no non-false literals--conflict
-                        (None, None) => Status::Conflict(self.get_literals()),
+                        (None, None) => Status::Conflict,
 
                         // There is only one non-false literal, so it must be true
                         (Some(a), None) => {
@@ -89,13 +89,6 @@ impl Clause {
                 }
             }
         }
-    }
-
-    pub fn get_literals(&self) -> formula::Clause {
-        formula::Clause::new(match self {
-            Self::Binary { a, b } => [*a, *b].iter().copied().collect(),
-            Self::Many { literals } => literals.iter().copied().collect(),
-        })
     }
 }
 
@@ -121,35 +114,6 @@ fn new_clause() -> Result<(), String> {
 
     let all = Clause::new(lits.iter().copied())?;
     assert!(matches!(all, Clause::Many{literals} if literals == lits));
-
-    Ok(())
-}
-
-#[test]
-fn get_literals() -> Result<(), String> {
-    let (l1, l2, l3, l4) = (
-        Literal::new(1, false),
-        Literal::new(2, true),
-        Literal::new(3, true),
-        Literal::new(4, false),
-    );
-
-    let lits = vec![l3, l4, l1, l2];
-
-    assert_eq!(
-        Clause::new(lits[..2].iter().copied())?.get_literals(),
-        formula::Clause::new(lits[..2].iter().copied().collect())
-    );
-
-    assert_eq!(
-        Clause::new(lits[1..4].iter().copied())?.get_literals(),
-        formula::Clause::new(lits[1..4].iter().copied().collect())
-    );
-
-    assert_eq!(
-        Clause::new(lits.iter().copied())?.get_literals(),
-        formula::Clause::new(lits.iter().copied().collect())
-    );
 
     Ok(())
 }
@@ -219,7 +183,7 @@ fn update_binary() -> Result<(), String> {
             &Assignments::new_with(vec![Some(Negative), Some(Negative)]),
             0
         ),
-        Status::Conflict(clause.get_literals())
+        Status::Conflict
     );
 
     Ok(())
