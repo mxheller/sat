@@ -69,6 +69,32 @@ impl Counters {
     }
 }
 
+#[cfg(test)]
+impl Counters {
+    pub fn establish_invariants(&mut self) {
+        let counts = &self.counts;
+        self.ordered
+            .sort_unstable_by_key(|literal| counts[literal.code()]);
+
+        for (pos, literal) in self.ordered.iter().enumerate() {
+            self.positions[literal.code()] = pos;
+        }
+    }
+
+    fn valid(&self) -> bool {
+        let ordered = self
+            .ordered
+            .is_sorted_by_key(|literal| self.counts[literal.code()]);
+        let correct_positions = self
+            .positions
+            .iter()
+            .enumerate()
+            .all(|(idx, pos)| self.ordered[*pos] == Literal::from_code(idx));
+
+        ordered && correct_positions
+    }
+}
+
 impl Index<Literal> for Counters {
     type Output = ClauseIdx;
 
@@ -87,27 +113,16 @@ mod tests {
 
     impl Arbitrary for Counters {
         fn arbitrary<G: Gen>(g: &mut G) -> Counters {
-            let num_literals = (u32::arbitrary(g) as usize) + 1;
+            let num_vars = (u32::arbitrary(g) as usize) + 1;
+            let num_literals = num_vars * 2;
 
-            let mut counts = Vec::with_capacity(num_literals);
-            counts.resize_with(num_literals, || usize::arbitrary(g));
+            let mut counters = Counters::new(num_vars);
+            counters
+                .counts
+                .resize_with(num_literals, || usize::arbitrary(g));
 
-            let mut literals = (0..num_literals)
-                .map(Literal::from_code)
-                .collect::<Vec<_>>();
-            literals.sort_unstable_by_key(|literal| counts[literal.code()]);
-
-            let mut positions = Vec::with_capacity(num_literals);
-            positions.resize(num_literals, 0);
-            for (pos, literal) in literals.iter().enumerate() {
-                positions[literal.code()] = pos;
-            }
-
-            Counters {
-                counts,
-                positions,
-                ordered: literals,
-            }
+            counters.establish_invariants();
+            counters
         }
     }
 
@@ -117,17 +132,20 @@ mod tests {
         let old_count = counters.counts[literal.code()];
 
         counters.increment(literal);
-
-        let ordered = counters
-            .ordered
-            .is_sorted_by_key(|literal| counters.counts[literal.code()]);
         let incremented = counters.counts[literal.code()] == old_count + 1;
-        let correct_positions = counters
-            .positions
-            .iter()
-            .enumerate()
-            .all(|(idx, pos)| counters.ordered[*pos] == Literal::from_code(idx));
+        counters.valid() && incremented
+    }
 
-        ordered && incremented && correct_positions
+    #[quickcheck]
+    fn establish_invariants_preserves_invariants(num_vars: u16) -> bool {
+        let mut rng = rand::thread_rng();
+
+        let mut counters = Counters::new(num_vars as usize);
+        for count in counters.counts.iter_mut() {
+            *count = rng.gen();
+        }
+
+        counters.establish_invariants();
+        counters.valid()
     }
 }
