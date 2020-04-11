@@ -64,7 +64,6 @@ impl Conflict {
             0,
             "There should be at least one literal assigned at the conflict level in the conflict clause"
         );
-        dbg!(self.assigned_at_level, self.literals().collect::<Vec<_>>());
     }
 
     pub fn resolve(
@@ -74,8 +73,6 @@ impl Conflict {
         assignments: &Assignments,
     ) -> Result<(), String> {
         let code = literal.code();
-
-        println!("resolving {}", literal);
 
         debug_assert!(self.literals[code]);
         self.literals.set(code, false);
@@ -107,14 +104,6 @@ impl Conflict {
             .all(|literal| matches!(literal.evaluate(assignments), Some(false))));
 
         // Ensure there is a single literal assigned at the conflict level
-        dbg!(
-            conflict_level,
-            self.assigned_at_level,
-            self.variables().collect::<Vec<_>>(),
-            self.variables()
-                .filter(|var| assignments.get(*var).unwrap().decision_level() == conflict_level)
-                .collect::<Vec<_>>()
-        );
         debug_assert_eq!(self.assigned_at_level, 1);
         debug_assert_eq!(
             self.variables()
@@ -125,9 +114,18 @@ impl Conflict {
         );
 
         // Return the maximum level below the conflict level
-        self.variables()
+        let mut variables = self.variables().peekable();
+        let first = variables.peek().copied();
+        variables
             .map(|var| assignments.get(var).unwrap().decision_level())
             .filter(|level| *level != conflict_level)
             .max()
+            .or_else(|| first.and_then(|var| Self::var_backtrack_level(var, assignments)))
+    }
+
+    pub fn var_backtrack_level(var: Variable, assignments: &Assignments) -> Option<DecisionLevel> {
+        assignments
+            .get(var)
+            .and_then(|assignment| assignment.decision_level().checked_sub(1))
     }
 }

@@ -3,8 +3,9 @@ use crate::{Assignments, DecisionLevel, Literal, Variable};
 #[derive(Clone, Debug)]
 pub struct History {
     assignments: Vec<Literal>,
-    invariants_assigned: Variable,
     next_to_propogate: usize,
+    invariants: Vec<Literal>,
+    next_invariant_to_propogate: usize,
     decision_level_breaks: Vec<Variable>,
 }
 
@@ -12,8 +13,9 @@ impl History {
     pub fn new(num_vars: Variable) -> Self {
         Self {
             assignments: Vec::with_capacity(num_vars),
-            invariants_assigned: 0,
             next_to_propogate: 0,
+            invariants: Vec::with_capacity(num_vars),
+            next_invariant_to_propogate: 0,
             decision_level_breaks: Vec::new(),
         }
     }
@@ -22,8 +24,8 @@ impl History {
         self.assignments.push(literal);
     }
 
-    pub fn add_invariant(&mut self) {
-        self.invariants_assigned += 1;
+    pub fn add_invariant(&mut self, literal: Literal) {
+        self.invariants.push(literal);
     }
 
     pub fn new_decision_level(&mut self) {
@@ -42,17 +44,31 @@ impl History {
     }
 
     pub fn num_assigned(&self) -> usize {
-        self.assignments.len() + self.invariants_assigned
+        self.assignments.len() + self.invariants.len()
+    }
+
+    pub fn assignments_to_propogate(&self) -> bool {
+        self.next_invariant_to_propogate < self.invariants.len()
+            || self.next_to_propogate < self.assignments.len()
     }
 
     #[must_use]
     pub fn next_to_propogate(&mut self) -> Option<Literal> {
-        self.assignments
-            .get(self.next_to_propogate)
+        self.invariants
+            .get(self.next_invariant_to_propogate)
             .copied()
             .map(|literal| {
-                self.next_to_propogate += 1;
+                self.next_invariant_to_propogate += 1;
                 literal
+            })
+            .or_else(|| {
+                self.assignments
+                    .get(self.next_to_propogate)
+                    .copied()
+                    .map(|literal| {
+                        self.next_to_propogate += 1;
+                        literal
+                    })
             })
     }
 

@@ -83,32 +83,25 @@ impl Solver {
     }
 
     fn solve(mut self) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
-        while !self.all_variables_assigned() {
+        while !self.all_variables_assigned() || self.history.assignments_to_propogate() {
             match self.propogate_all() {
                 Status::Ok => {
-                    dbg!("propogated OK");
                     if !self.all_variables_assigned() {
                         self.branch()?;
                     }
                 }
                 Status::Unsat => return Ok(Solution::Unsat),
                 Status::ConflictLiteral(literal) => {
-                    dbg!(literal);
-                    let level = self
-                        .assignments
-                        .get(literal.var())
-                        .unwrap()
-                        .decision_level();
-
-                    if level == 0 {
-                        return Ok(Solution::Unsat);
+                    match Conflict::var_backtrack_level(literal.var(), &self.assignments) {
+                        None => return Ok(Solution::Unsat),
+                        Some(level) => {
+                            self.backtrack(level);
+                            assert!(matches!(
+                                self.learn_clause(std::iter::once(literal)),
+                                Ok(Status::Ok)
+                            ));
+                        }
                     }
-
-                    self.backtrack(level - 1);
-                    assert!(matches!(
-                        self.learn_clause(std::iter::once(literal)),
-                        Ok(Status::Ok)
-                    ));
                 }
                 Status::ConflictClause(clause) => match self.analyze_conflict(clause)? {
                     Some((learned, level)) => {
@@ -221,7 +214,6 @@ impl Solver {
             .counters
             .next_decision(&self.assignments)
             .ok_or_else(|| "No variable to branch on".to_owned())?;
-        dbg!(choice);
         match self.assign_decided(choice) {
             Status::Ok => Ok(()),
             _ => Err("Branched on already decided variable".to_owned()),
@@ -232,7 +224,6 @@ impl Solver {
         &mut self,
         conflict_clause: ClauseIdx,
     ) -> Result<Option<(Vec<Literal>, DecisionLevel)>, String> {
-        dbg!(conflict_clause);
         let (level, assignments) = (self.decision_level, &self.assignments);
         if level == 0 {
             return Ok(None);
@@ -246,8 +237,6 @@ impl Solver {
         );
 
         for literal in self.history.most_recently_implied_at_current_level() {
-            println!("Checking {}", literal);
-            dbg!(conflict.assigned_at_level());
             if conflict.assigned_at_level() <= 1 {
                 break;
             }

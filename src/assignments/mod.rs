@@ -28,23 +28,19 @@ impl Assignments {
     pub fn set(&mut self, var: Variable, assignment: Assignment, history: &mut History) -> Status {
         match self.get(var) {
             None => {
+                let literal = Literal::new(var, assignment.sign());
                 if assignment.decision_level() == 0 {
-                    history.add_invariant();
+                    history.add_invariant(literal);
                 } else {
-                    history.add(Literal::new(var, assignment.sign()));
+                    history.add(literal);
                 }
                 self.assignments[var] = Some(assignment);
                 Status::Ok
             }
-            Some(existing) if existing.sign() != assignment.sign() => {
-                println!("Variable {} already assigned!", var);
-                assignment
-                    .antecedent()
-                    .map(Status::ConflictClause)
-                    .unwrap_or_else(|| {
-                        Status::ConflictLiteral(Literal::new(var, assignment.sign()))
-                    })
-            }
+            Some(existing) if existing.sign() != assignment.sign() => assignment
+                .antecedent()
+                .map(Status::ConflictClause)
+                .unwrap_or_else(|| Status::ConflictLiteral(Literal::new(var, assignment.sign()))),
             _ => Status::Ok,
         }
     }
