@@ -1,8 +1,4 @@
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-    time::Instant,
-};
+use std::time::Instant;
 
 use sat::*;
 
@@ -10,12 +6,7 @@ fn main() -> Result<(), String> {
     match std::env::args().collect::<Vec<_>>().as_slice() {
         [_, path] => {
             let start = Instant::now();
-
-            let lines = File::open(path)
-                .map(|f| BufReader::new(f).lines().filter_map(Result::ok))
-                .map_err(|e| format!("{}", e))?;
-
-            let solution = Formula::parse_and_solve(lines)?;
+            let solution = Formula::parse_and_solve_file(path)?;
             print_solution(solution);
             println!("c solved in {}ms", start.elapsed().as_millis());
             Ok(())

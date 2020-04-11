@@ -2,6 +2,11 @@ pub mod clause;
 
 use crate::{solver::Solution, Literal, Sign, Solver, Variable};
 pub use clause::Clause;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+};
 
 pub struct Formula {
     pub clauses: Vec<Clause>,
@@ -22,6 +27,16 @@ impl Formula {
         lines: impl IntoIterator<Item = impl AsRef<str>>,
     ) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
         Self::parse(lines).and_then(Solver::solve_formula)
+    }
+
+    pub fn parse_and_solve_file(
+        path: impl AsRef<Path>,
+    ) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
+        let lines = File::open(path)
+            .map(|f| BufReader::new(f).lines().filter_map(Result::ok))
+            .map_err(|e| format!("{}", e))?;
+
+        Formula::parse_and_solve(lines)
     }
 
     pub fn solve(self) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {

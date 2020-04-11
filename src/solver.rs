@@ -86,12 +86,14 @@ impl Solver {
         while !self.all_variables_assigned() {
             match self.propogate_all() {
                 Status::Ok => {
+                    dbg!("propogated OK");
                     if !self.all_variables_assigned() {
                         self.branch()?;
                     }
                 }
                 Status::Unsat => return Ok(Solution::Unsat),
                 Status::ConflictLiteral(literal) => {
+                    dbg!(literal);
                     let level = self
                         .assignments
                         .get(literal.var())
@@ -230,6 +232,7 @@ impl Solver {
         &mut self,
         conflict_clause: ClauseIdx,
     ) -> Result<Option<(Vec<Literal>, DecisionLevel)>, String> {
+        dbg!(conflict_clause);
         let (level, assignments) = (self.decision_level, &self.assignments);
         if level == 0 {
             return Ok(None);
@@ -316,4 +319,46 @@ fn learning() -> Result<(), String> {
     ]
     .into();
     formula.solve().map(|_| ())
+}
+
+#[test]
+fn minimal_unsat() {
+    let formula: formula::Formula = vec![vec![5], vec![-5]].into();
+    assert!(matches!(formula.solve(), Ok(Solution::Unsat)));
+}
+
+#[test]
+fn unsat() {
+    let formula: formula::Formula = vec![vec![1, 2], vec![1, -2], vec![-1, 2], vec![-1, -2]].into();
+    assert!(matches!(formula.solve(), Ok(Solution::Unsat)));
+}
+
+#[test]
+fn zebra() {
+    let solution = formula::Formula::parse_and_solve_file("inputs/zebra.cnf");
+    assert!(matches!(solution, Ok(Solution::Sat(_))));
+}
+
+#[test]
+fn dubois() {
+    let solution = formula::Formula::parse_and_solve_file("inputs/dubois.cnf");
+    assert!(matches!(solution, Ok(Solution::Unsat)));
+}
+
+#[test]
+fn aim100() {
+    let solution = formula::Formula::parse_and_solve_file("inputs/aim-100.cnf");
+    assert!(matches!(solution, Ok(Solution::Unsat)));
+}
+
+#[test]
+fn aim50() {
+    let solution = formula::Formula::parse_and_solve_file("inputs/aim-50.cnf");
+    assert!(matches!(solution, Ok(Solution::Sat(_))));
+}
+
+#[test]
+fn bf() {
+    let solution = formula::Formula::parse_and_solve_file("inputs/bf0432-007.cnf");
+    assert!(matches!(solution, Ok(Solution::Unsat)));
 }
