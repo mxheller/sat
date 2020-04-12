@@ -15,6 +15,7 @@ pub struct Solver {
     history: History,
     watched: Watched,
     conflict: Conflict,
+    pending_update: Vec<ClauseIdx>,
 }
 
 pub enum Solution<T: IntoIterator<Item = (Variable, Sign)>> {
@@ -47,14 +48,16 @@ impl Solver {
             .collect::<BTreeMap<Variable, Variable>>();
 
         let num_variables = variables.len();
+        let num_clauses = formula.clauses.len();
 
         let mut solver = Self {
-            formula: TrimmedFormula::new(formula.clauses.len()),
+            formula: TrimmedFormula::new(num_clauses),
             counters: Counters::new(num_variables),
             assignments: Assignments::new(num_variables),
             history: History::new(num_variables),
             watched: Watched::new(num_variables),
             conflict: Conflict::new(num_variables),
+            pending_update: Vec::with_capacity(num_clauses),
             decision_level: 0,
             num_variables,
         };
@@ -158,9 +161,9 @@ impl Solver {
 
     fn propogate(&mut self, literal: Literal) -> Status {
         // Find clauses in which negated literal (now unsatisfied) is watched
-        let affected_clauses = self.watched[!literal].clone();
+        self.pending_update.extend(self.watched[!literal].iter());
 
-        for clause in affected_clauses {
+        while let Some(clause) = self.pending_update.pop() {
             match self.formula[clause].update(&mut self.watched, &self.assignments, clause) {
                 clause::Status::Ok => (),
                 clause::Status::Conflict => return Status::ConflictClause(clause),
