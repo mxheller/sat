@@ -1,8 +1,5 @@
 use crate::{ClauseIdx, Literal, Sign, Variable};
-use std::{
-    collections::BTreeSet,
-    ops::{Index, IndexMut},
-};
+use std::ops::{Index, IndexMut};
 
 pub struct Watched {
     watched: Vec<Clauses>,
@@ -10,8 +7,8 @@ pub struct Watched {
 
 #[derive(Clone, Default)]
 pub struct Clauses {
-    positive: BTreeSet<ClauseIdx>,
-    negative: BTreeSet<ClauseIdx>,
+    positive: Vec<ClauseIdx>,
+    negative: Vec<ClauseIdx>,
 }
 
 impl Watched {
@@ -23,7 +20,7 @@ impl Watched {
 }
 
 impl Index<Literal> for Watched {
-    type Output = BTreeSet<ClauseIdx>;
+    type Output = Vec<ClauseIdx>;
 
     #[inline]
     fn index(&self, literal: Literal) -> &Self::Output {
@@ -39,7 +36,7 @@ impl IndexMut<Literal> for Watched {
 }
 
 impl Index<Sign> for Clauses {
-    type Output = BTreeSet<ClauseIdx>;
+    type Output = Vec<ClauseIdx>;
 
     #[inline]
     fn index(&self, sign: Sign) -> &Self::Output {

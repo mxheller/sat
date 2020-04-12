@@ -29,12 +29,12 @@ impl TrimmedFormula {
         let idx = self.clauses.len();
         match &clause {
             Clause::Binary { a, b } => {
-                watched[*a].insert(idx);
-                watched[*b].insert(idx);
+                watched[*a].push(idx);
+                watched[*b].push(idx);
             }
             Clause::Many { literals } => {
-                watched[literals[0]].insert(idx);
-                watched[literals[1]].insert(idx);
+                watched[literals[0]].push(idx);
+                watched[literals[1]].push(idx);
             }
         }
         let idx = self.clauses.len();

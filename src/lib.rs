@@ -1,4 +1,4 @@
-#![feature(is_sorted)]
+#![feature(is_sorted, vec_remove_item)]
 
 mod assignments;
 mod conflict;

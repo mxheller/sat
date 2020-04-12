@@ -51,8 +51,10 @@ impl Clause {
 
                 let mut watch = |literals: &mut Vec<Literal>, idx, slot| {
                     if idx != slot {
-                        watched[literals[slot]].remove(&clause_idx);
-                        watched[literals[idx]].insert(clause_idx);
+                        if idx > 1 {
+                            watched[literals[slot]].remove_item(&clause_idx);
+                            watched[literals[idx]].push(clause_idx);
+                        }
                         literals.swap(idx, slot);
                     }
                 };
@@ -201,8 +203,8 @@ fn update_ternary() -> Result<(), String> {
     let watched = &mut Watched::new(3);
     let clause = &mut Clause::new([l0, !l1, l2].iter().copied())?;
 
-    watched[l0].insert(0);
-    watched[!l1].insert(0);
+    watched[l0].push(0);
+    watched[!l1].push(0);
 
     assert_eq!(
         clause.update(watched, &Assignments::new_with(vec![None, None, None]), 0),
