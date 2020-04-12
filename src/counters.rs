@@ -5,6 +5,7 @@ pub type Count = ClauseIdx;
 
 #[derive(Clone, Debug)]
 pub struct Counters {
+    initialized: bool,
     /// Count of each literal (where each literal's code corresponds to its index)
     counts: Vec<Count>,
     /// Position of each literal in the ordered vec
@@ -18,13 +19,18 @@ impl Counters {
         // Initialize two counters for each variable (one for each polarity)
         let num_literals = num_vars * 2 as usize;
         Self {
+            initialized: false,
             counts: vec![0; num_literals],
             positions: (0..num_literals).collect(),
             ordered: (0..num_literals).map(Literal::from_code).collect(),
         }
     }
 
-    pub fn next_decision(&self, assignments: &Assignments) -> Option<Literal> {
+    pub fn next_decision(&mut self, assignments: &Assignments) -> Option<Literal> {
+        if !self.initialized {
+            self.establish_invariants();
+        }
+
         self.ordered
             .iter()
             .rev()
@@ -38,6 +44,11 @@ impl Counters {
         // Find current count and increment
         let count = self.counts[idx];
         self.counts[idx] += 1;
+
+        if !self.initialized {
+            return;
+        }
+
         // Find the last literal in same chunk of the sorted vec that has the same count
         debug_assert_eq!(self.ordered[self.positions[idx]], literal);
         let target = self.ordered[self.positions[idx] + 1..]
@@ -67,11 +78,8 @@ impl Counters {
             .ordered
             .is_sorted_by_key(|literal| self.counts[literal.code()]));
     }
-}
 
-#[cfg(test)]
-impl Counters {
-    pub fn establish_invariants(&mut self) {
+    fn establish_invariants(&mut self) {
         let counts = &self.counts;
         self.ordered
             .sort_unstable_by_key(|literal| counts[literal.code()]);
@@ -79,6 +87,9 @@ impl Counters {
         for (pos, literal) in self.ordered.iter().enumerate() {
             self.positions[literal.code()] = pos;
         }
+
+        debug_assert!(self.valid());
+        self.initialized = true;
     }
 
     fn valid(&self) -> bool {
