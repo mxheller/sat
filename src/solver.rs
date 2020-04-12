@@ -158,10 +158,7 @@ impl Solver {
 
     fn propogate(&mut self, literal: Literal) -> Status {
         // Find clauses in which negated literal (now unsatisfied) is watched
-        let affected_clauses = self.watched[!literal]
-            .iter()
-            .copied()
-            .collect::<Vec<usize>>();
+        let affected_clauses = self.watched[!literal].clone();
 
         for clause in affected_clauses {
             match self.formula[clause].update(&mut self.watched, &self.assignments, clause) {
