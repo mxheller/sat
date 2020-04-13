@@ -16,16 +16,6 @@ impl Literal {
     }
 
     #[inline]
-    pub(crate) fn from_code(code: Variable) -> Literal {
-        Self { code }
-    }
-
-    #[inline]
-    pub(crate) fn code(self) -> Variable {
-        self.code
-    }
-
-    #[inline]
     pub fn var(self) -> Variable {
         self.code >> 1
     }
@@ -33,6 +23,14 @@ impl Literal {
     #[inline]
     pub fn sign(self) -> Sign {
         ((self.code & 1) == 1).into()
+    }
+
+    pub(crate) fn code(self) -> usize {
+        self.into()
+    }
+
+    pub(crate) fn from_code(code: usize) -> Self {
+        code.into()
     }
 }
 
@@ -59,6 +57,18 @@ impl From<isize> for Literal {
     fn from(x: isize) -> Self {
         assert_ne!(x, 0, "literals can only be parsed from non-zero inputs");
         Self::new(x.abs() as Variable, x > 0)
+    }
+}
+
+impl From<usize> for Literal {
+    fn from(code: usize) -> Literal {
+        Self { code }
+    }
+}
+
+impl Into<usize> for Literal {
+    fn into(self) -> usize {
+        self.code
     }
 }
 

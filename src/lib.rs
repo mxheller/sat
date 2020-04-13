@@ -1,4 +1,4 @@
-#![feature(is_sorted, vec_remove_item)]
+#![feature(cmp_min_max_by, is_sorted, vec_remove_item)]
 
 mod assignments;
 mod conflict;
@@ -8,7 +8,7 @@ mod history;
 mod literal;
 mod sign;
 mod solver;
-mod trimmed_formula;
+pub mod trimmed_formula;
 mod watched;
 
 use assignments::{Assignment, Assignments};

@@ -52,7 +52,7 @@ impl Solver {
 
         let mut solver = Self {
             formula: TrimmedFormula::new(num_clauses),
-            counters: Counters::new(num_variables),
+            counters: Counters::new(num_variables * 2),
             assignments: Assignments::new(num_variables),
             history: History::new(num_variables),
             watched: Watched::new(num_variables),
@@ -114,6 +114,7 @@ impl Solver {
                             self.learn_clause(learned.into_iter()),
                             Ok(Status::Ok)
                         ));
+                        self.counters.decay_activity();
                     }
                     None => return Ok(Solution::Unsat),
                 },
@@ -185,7 +186,7 @@ impl Solver {
             0 => Ok(Status::Unsat),
             1 => {
                 let unit = clause.next().unwrap();
-                self.counters.increment(unit);
+                self.counters.bump(unit);
                 Ok(self.assign_invariant(unit))
             }
             _ => {
@@ -267,7 +268,8 @@ impl Solver {
 
     fn backtrack(&mut self, level: usize) {
         self.decision_level = level;
-        self.history.revert_to(level, &mut self.assignments);
+        self.history
+            .revert_to(level, &mut self.assignments, &mut self.counters);
     }
 }
 

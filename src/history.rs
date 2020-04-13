@@ -1,4 +1,4 @@
-use crate::{Assignments, DecisionLevel, Literal, Variable};
+use crate::{Assignments, Counters, DecisionLevel, Literal, Variable};
 
 #[derive(Clone, Debug)]
 pub struct History {
@@ -32,11 +32,17 @@ impl History {
         self.decision_level_breaks.push(self.assignments.len());
     }
 
-    pub fn revert_to(&mut self, level: DecisionLevel, assignments: &mut Assignments) {
+    pub fn revert_to(
+        &mut self,
+        level: DecisionLevel,
+        assignments: &mut Assignments,
+        counters: &mut Counters,
+    ) {
         if level < self.decision_level_breaks.len() {
             let new_end = self.decision_level_breaks[level];
             for literal in self.assignments.drain(new_end..) {
                 assignments.remove(literal.var());
+                counters.add_to_heap(literal);
             }
             self.decision_level_breaks.truncate(level);
             self.next_to_propogate = std::cmp::min(self.next_to_propogate, new_end);
@@ -89,10 +95,11 @@ impl History {
 
 #[test]
 fn rewriting_history() {
-    use crate::{Assignment, Sign::Positive};
+    use crate::{Assignment, Counters, Sign::Positive};
 
     let mut history = History::new(6);
     let mut assignments = Assignments::new(6);
+    let mut counters = Counters::new(12);
 
     let mut set = |history: &mut History, level, var| {
         let _ = assignments.set(var, Assignment::decided(Positive, level), history);
@@ -119,8 +126,9 @@ fn rewriting_history() {
     );
 
     {
-        let (mut history, mut assignments) = (history.clone(), assignments.clone());
-        history.revert_to(0, &mut assignments);
+        let (mut history, mut assignments, mut counters) =
+            (history.clone(), assignments.clone(), counters.clone());
+        history.revert_to(0, &mut assignments, &mut counters);
         assert_eq!(history.assignments, vec![]);
         assert_eq!(history.decision_level_breaks, vec![]);
 
@@ -128,8 +136,9 @@ fn rewriting_history() {
     }
 
     {
-        let (mut history, mut assignments) = (history.clone(), assignments.clone());
-        history.revert_to(1, &mut assignments);
+        let (mut history, mut assignments, mut counters) =
+            (history.clone(), assignments.clone(), counters.clone());
+        history.revert_to(1, &mut assignments, &mut counters);
         assert_eq!(
             history.assignments,
             vec![Literal::new(1, Positive), Literal::new(2, Positive)]
@@ -137,7 +146,7 @@ fn rewriting_history() {
         assert_eq!(history.decision_level_breaks, vec![0]);
     }
 
-    history.revert_to(2, &mut assignments);
+    history.revert_to(2, &mut assignments, &mut counters);
     assert_eq!(
         history.assignments,
         vec![
