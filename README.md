@@ -3,6 +3,20 @@
 
 A CDCL SAT solver written in Rust
 
+## Say What?!
+
+A [**C**onflict-**D**riven **C**lause **L**earning](https://en.wikipedia.org/wiki/Conflict-driven_clause_learning) [**Sat**isfiability](https://en.wikipedia.org/wiki/Boolean_satisfiability_problem) solver.
+Essentially, a program for determining whether there exists an assignment of variables such that a boolean formula such as
+```
+(a ∨ b) ∧ (¬a ∨ c)
+```
+evaluates to true, where `∨` means OR, `∧` means AND, `¬` means NOT, and *assignment* means something of the form
+```
+a: false
+b: true
+c: true
+```
+
 ## Installation
 
 After [installing rust](https://www.rust-lang.org/tools/install) and cloning the repo, you can install `sat` by running
