@@ -21,16 +21,17 @@ use crate::{Assignments, Literal};
 use ordered_float::OrderedFloat;
 use std::ops::Index;
 
-pub type Count = f32;
+pub type Count = f64;
 
-const VAR_DECAY: f32 = 0.95;
+const VAR_DECAY: f64 = 0.95;
+const RESCALE_THRESH: f64 = 1e100;
 
 #[derive(Clone, Debug)]
 pub struct Counters {
-    priorities: Vec<OrderedFloat<Count>>, // Item index -> priority of item
-    heap: Vec<usize>,                     // Heap of item indices
-    positions: Vec<Option<usize>>,        // Item index -> Index of item in heap
-    bump: Count,                          // Quantity to increment count with
+    priorities: Vec<Count>,        // Item index -> priority of item
+    heap: Vec<usize>,              // Heap of item indices
+    positions: Vec<Option<usize>>, // Item index -> Index of item in heap
+    bump: Count,                   // Quantity to increment count with
 }
 
 impl Counters {
@@ -81,8 +82,12 @@ impl Counters {
         self.bump /= VAR_DECAY;
     }
 
+    pub fn priority(&self, item: impl Into<usize>) -> OrderedFloat<Count> {
+        OrderedFloat(self.priorities[item.into()])
+    }
+
     pub fn bump(&mut self, item: impl Into<usize>) {
-        self.increase_priority(item, self.bump)
+        self.increase_priority(item, self.bump);
     }
 
     #[must_use]
@@ -97,8 +102,15 @@ impl Counters {
         let item: usize = item.into();
 
         // Increase priority of item
-        let priority: Count = self.priorities[item].into();
-        self.priorities[item] = (priority + quantity).into();
+        self.priorities[item] += quantity;
+
+        // Rescale if necessary
+        if self.priorities[item] > RESCALE_THRESH {
+            self.priorities.iter_mut().for_each(|priority| {
+                *priority /= RESCALE_THRESH;
+            });
+            self.bump /= RESCALE_THRESH;
+        }
 
         // If element is currently in the heap, move it to its new position
         if let Some(pos) = self.positions[item] {
@@ -159,7 +171,7 @@ impl Counters {
 
     fn update_largest(&self, largest: &mut usize, other: usize) {
         if other < self.heap.len() {
-            *largest = std::cmp::max_by_key(*largest, other, |x| self.priorities[self.heap[*x]]);
+            *largest = std::cmp::max_by_key(*largest, other, |x| self.priority(self.heap[*x]));
         }
     }
 
