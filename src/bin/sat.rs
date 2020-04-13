@@ -11,7 +11,8 @@ fn main() -> Result<(), String> {
             println!("c solved in {}ms", start.elapsed().as_millis());
             Ok(())
         }
-        _ => Err("Usage: ./run.sh <problem file>".into()),
+        [executable] | [executable, ..] => Err(format!("Usage: {} <problem file>", executable)),
+        [] => unreachable!(),
     }
 }
 
