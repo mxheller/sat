@@ -17,9 +17,9 @@
  *
  */
 
-use crate::{Assignments, Literal};
+use crate::{Assignments, Literal, Variable};
 use ordered_float::OrderedFloat;
-use std::ops::Index;
+use std::{marker::PhantomData, ops::Index};
 
 pub type Count = f64;
 
@@ -27,167 +27,29 @@ const VAR_DECAY: f64 = 0.95;
 const RESCALE_THRESH: f64 = 1e100;
 
 #[derive(Clone, Debug)]
-pub struct Counters {
+pub struct Counters<T> {
     priorities: Vec<Count>,        // Item index -> priority of item
     heap: Vec<usize>,              // Heap of item indices
     positions: Vec<Option<usize>>, // Item index -> Index of item in heap
     bump: Count,                   // Quantity to increment count with
+    key: PhantomData<T>,
 }
 
-impl Counters {
+impl<T> Counters<T> {
     pub fn new(size: usize) -> Self {
         let counters = Self {
             priorities: vec![Default::default(); size],
             heap: (0..size).collect(),
             positions: (0..size).map(Option::Some).collect(),
             bump: 1.0,
+            key: PhantomData,
         };
         debug_assert!(counters.valid());
         counters
     }
 
-    /// Removes the item with the greatest priority from
-    /// the priority counters and returns the pair (item index, priority),
-    /// or None if the counters is empty.
-    pub fn pop(&mut self) -> Option<(usize, Count)> {
-        let popped = match self.heap.len() {
-            0 => None,
-            1 => self.swap_remove(),
-            _ => {
-                let r = self.swap_remove();
-                self.sift_down(0);
-                r
-            }
-        };
-        debug_assert!(self.valid());
-        popped
-    }
-
-    pub fn add_to_heap(&mut self, item: impl Into<usize>) {
-        let item: usize = item.into();
-        if self.positions[item].is_some() {
-            return;
-        }
-
-        // Add the item to the end of the heap
-        let pos = self.heap.len();
-        self.heap.push(item);
-        self.positions[item] = Some(pos);
-
-        let pos = self.bubble_up(pos);
-        self.sift_down(pos);
-    }
-
     pub fn decay_activity(&mut self) {
         self.bump /= VAR_DECAY;
-    }
-
-    pub fn priority(&self, item: impl Into<usize>) -> OrderedFloat<Count> {
-        OrderedFloat(self.priorities[item.into()])
-    }
-
-    pub fn bump(&mut self, item: impl Into<usize>) {
-        self.increase_priority(item, self.bump);
-    }
-
-    #[must_use]
-    pub fn next_decision(&mut self, assignments: &Assignments) -> Option<Literal> {
-        match self.pop().map(|(item, _)| Literal::from(item)) {
-            Some(x) if assignments.get(x.var()).is_some() => self.next_decision(assignments),
-            x => x,
-        }
-    }
-
-    fn increase_priority(&mut self, item: impl Into<usize>, quantity: Count) {
-        let item: usize = item.into();
-
-        // Increase priority of item
-        self.priorities[item] += quantity;
-
-        // Rescale if necessary
-        if self.priorities[item] > RESCALE_THRESH {
-            self.priorities.iter_mut().for_each(|priority| {
-                *priority /= RESCALE_THRESH;
-            });
-            self.bump /= RESCALE_THRESH;
-        }
-
-        // If element is currently in the heap, move it to its new position
-        if let Some(pos) = self.positions[item] {
-            let pos = self.bubble_up(pos);
-            self.sift_down(pos);
-        }
-
-        debug_assert!(self.valid());
-    }
-
-    /// Remove and return the item with the max priority
-    /// and swap it with the last element keeping a consistent state.
-    fn swap_remove<I: From<usize>>(&mut self) -> Option<(I, Count)> {
-        // Remove the head of the heap
-        let removed = self.heap.swap_remove(0);
-
-        self.positions[removed] = None;
-        if self.heap.len() > 0 {
-            self.positions[self.heap[0]] = Some(0);
-        }
-        debug_assert!(self.valid_positions());
-        Some((removed.into(), self.priorities[removed].into()))
-    }
-
-    /// Swap two elements keeping a consistent state.
-    fn swap(&mut self, a: usize, b: usize) {
-        let (i, j) = (self.heap[a], self.heap[b]);
-        self.heap.swap(a, b);
-        self.positions.swap(i, j);
-        debug_assert!(self.valid_positions());
-    }
-
-    /// Restore the functional property of the heap
-    fn sift_down(&mut self, mut idx: usize) {
-        let mut largest = idx;
-        self.update_largest(&mut largest, Self::left(idx));
-        self.update_largest(&mut largest, Self::right(idx));
-
-        while largest != idx {
-            // One of idx's children is larger than it
-            self.swap(idx, largest);
-            idx = largest;
-            self.update_largest(&mut largest, Self::left(idx));
-            self.update_largest(&mut largest, Self::right(idx));
-        }
-        debug_assert!(self.valid_positions());
-    }
-
-    fn bubble_up(&mut self, mut idx: usize) -> usize {
-        let priority = self.priorities[self.heap[idx]];
-        while idx > 0 && self.priorities[self.heap[Self::parent(idx)]] < priority {
-            self.swap(idx, Self::parent(idx));
-            idx = Self::parent(idx);
-        }
-        debug_assert!(self.valid_positions());
-        idx
-    }
-
-    fn update_largest(&self, largest: &mut usize, other: usize) {
-        if other < self.heap.len() {
-            *largest = std::cmp::max_by_key(*largest, other, |x| self.priority(self.heap[*x]));
-        }
-    }
-
-    /// Compute the index of the left child of an item from its index
-    fn left(i: usize) -> usize {
-        (i * 2) + 1
-    }
-
-    /// Compute the index of the right child of an item from its index
-    fn right(i: usize) -> usize {
-        (i * 2) + 2
-    }
-
-    /// Compute the index of the parent element in the heap from its index
-    fn parent(i: usize) -> usize {
-        (i - 1) / 2
     }
 
     fn valid_positions(&self) -> bool {
@@ -219,14 +81,163 @@ impl Counters {
         });
         self.valid_positions() && ordered
     }
+
+    /// Compute the index of the left child of an item from its index
+    fn left(i: usize) -> usize {
+        (i * 2) + 1
+    }
+
+    /// Compute the index of the right child of an item from its index
+    fn right(i: usize) -> usize {
+        (i * 2) + 2
+    }
+
+    /// Compute the index of the parent element in the heap from its index
+    fn parent(i: usize) -> usize {
+        (i - 1) / 2
+    }
+
+    fn priority(&self, item: usize) -> OrderedFloat<Count> {
+        OrderedFloat(self.priorities[item])
+    }
+
+    fn update_largest(&self, largest: &mut usize, other: usize) {
+        if other < self.heap.len() {
+            *largest =
+                std::cmp::max_by_key(*largest, other, |x| self.priority(self.heap[*x].into()));
+        }
+    }
+
+    /// Restore the functional property of the heap
+    fn sift_down(&mut self, mut idx: usize) {
+        let mut largest = idx;
+        self.update_largest(&mut largest, Self::left(idx));
+        self.update_largest(&mut largest, Self::right(idx));
+
+        while largest != idx {
+            // One of idx's children is larger than it
+            self.swap(idx, largest);
+            idx = largest;
+            self.update_largest(&mut largest, Self::left(idx));
+            self.update_largest(&mut largest, Self::right(idx));
+        }
+        debug_assert!(self.valid_positions());
+    }
+
+    fn bubble_up(&mut self, mut idx: usize) -> usize {
+        let priority = self.priorities[self.heap[idx]];
+        while idx > 0 && self.priorities[self.heap[Self::parent(idx)]] < priority {
+            self.swap(idx, Self::parent(idx));
+            idx = Self::parent(idx);
+        }
+        debug_assert!(self.valid_positions());
+        idx
+    }
+
+    /// Swap two elements keeping a consistent state.
+    fn swap(&mut self, a: usize, b: usize) {
+        let (i, j) = (self.heap[a], self.heap[b]);
+        self.heap.swap(a, b);
+        self.positions.swap(i, j);
+        debug_assert!(self.valid_positions());
+    }
 }
 
-impl Index<Literal> for Counters {
+impl Counters<Variable> {
+    #[must_use]
+    pub fn next_decision(&mut self, assignments: &Assignments) -> Option<Literal> {
+        match self.pop().map(|(item, _)| item) {
+            Some(x) if assignments[x].is_some() => self.next_decision(assignments),
+            Some(x) => Some(Literal::new(x, assignments.last_sign(x))),
+            None => None,
+        }
+    }
+}
+
+impl<T> Counters<T>
+where
+    T: From<usize> + Into<usize> + Copy,
+{
+    /// Removes the item with the greatest priority from
+    /// the priority counters and returns the pair (item index, priority),
+    /// or None if the counters is empty.
+    pub fn pop(&mut self) -> Option<(T, Count)> {
+        let popped = match self.heap.len() {
+            0 => None,
+            1 => self.swap_remove(),
+            _ => {
+                let r = self.swap_remove();
+                self.sift_down(0);
+                r
+            }
+        };
+        debug_assert!(self.valid());
+        popped
+    }
+
+    pub fn add_to_heap(&mut self, item: T) {
+        let item: usize = item.into();
+        if self.positions[item].is_some() {
+            return;
+        }
+
+        // Add the item to the end of the heap
+        let pos = self.heap.len();
+        self.heap.push(item);
+        self.positions[item] = Some(pos);
+
+        let pos = self.bubble_up(pos);
+        self.sift_down(pos);
+    }
+
+    pub fn bump(&mut self, item: T) {
+        self.increase_priority(item, self.bump);
+    }
+
+    fn increase_priority(&mut self, item: T, quantity: Count) {
+        let item: usize = item.into();
+
+        // Increase priority of item
+        self.priorities[item] += quantity;
+
+        // Rescale if necessary
+        if self.priorities[item] > RESCALE_THRESH {
+            self.priorities.iter_mut().for_each(|priority| {
+                *priority /= RESCALE_THRESH;
+            });
+            self.bump /= RESCALE_THRESH;
+        }
+
+        // If element is currently in the heap, move it to its new position
+        if let Some(pos) = self.positions[item] {
+            let pos = self.bubble_up(pos);
+            self.sift_down(pos);
+        }
+
+        debug_assert!(self.valid());
+    }
+
+    /// Remove and return the item with the max priority
+    /// and swap it with the last element keeping a consistent state.
+    fn swap_remove(&mut self) -> Option<(T, Count)> {
+        // Remove the head of the heap
+        let removed = self.heap.swap_remove(0);
+
+        self.positions[removed] = None;
+        if self.heap.len() > 0 {
+            self.positions[self.heap[0]] = Some(0);
+        }
+        debug_assert!(self.valid_positions());
+        Some((removed.into(), self.priorities[removed].into()))
+    }
+}
+
+impl<T: Into<usize>> Index<T> for Counters<T> {
     type Output = Count;
 
     #[inline]
-    fn index(&self, literal: Literal) -> &Self::Output {
-        &self.priorities[literal.code()]
+    fn index(&self, item: T) -> &Self::Output {
+        &self.priorities[item.into()]
     }
 }
 
@@ -237,12 +248,12 @@ mod tests {
     use quickcheck_macros::quickcheck;
     use rand::Rng;
 
-    impl Arbitrary for Counters {
+    impl Arbitrary for Counters<usize> {
         fn arbitrary<G: Gen>(g: &mut G) -> Self {
             let mut rng = rand::thread_rng();
             let size = usize::arbitrary(g);
 
-            let mut counters: Counters = Counters::new(size);
+            let mut counters = Counters::new(size);
             let mut priorities = vec![0.0; size];
 
             for _ in 0..size {
@@ -258,20 +269,18 @@ mod tests {
         }
     }
 
-    impl Counters {
-        fn into_ordered_vec<I: From<usize>>(mut self) -> Vec<(I, Count)> {
-            (0..self.heap.len())
-                .map(|_| {
-                    let (idx, count) = self.pop().unwrap();
-                    (I::from(idx), count)
-                })
-                .collect()
+    impl<T> Counters<T>
+    where
+        T: From<usize> + Into<usize> + Copy,
+    {
+        fn into_ordered_vec(mut self) -> Vec<(T, Count)> {
+            (0..self.heap.len()).map(|_| self.pop().unwrap()).collect()
         }
     }
 
     #[quickcheck]
     fn all_priorities_equal(size: usize) {
-        let counters: Counters = Counters::new(size);
+        let counters = Counters::new(size);
         let mut out: Vec<(usize, Count)> = counters.into_ordered_vec();
         out.sort_by_key(|pair| pair.0);
         assert_eq!(
@@ -284,7 +293,7 @@ mod tests {
 
     #[test]
     fn incrementing() {
-        let mut counters: Counters = Counters::new(3);
+        let mut counters = Counters::new(3);
         counters.increase_priority(0usize, 2.0);
         counters.increase_priority(1usize, 3.0);
         counters.increase_priority(1usize, 1.0);
@@ -294,7 +303,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn pop_order(counters: Counters) {
+    fn pop_order(counters: Counters<usize>) {
         let size = counters.heap.len();
         let out: Vec<(usize, Count)> = counters.into_ordered_vec();
         assert!(out.is_sorted_by_key(|pair| std::cmp::Reverse(pair.1)));
@@ -305,7 +314,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn pop_push_pop(mut counters: Counters) {
+    fn pop_push_pop(mut counters: Counters<usize>) {
         if let Some((item, priority)) = counters.pop() {
             counters.increase_priority(item, 5.0);
             counters.add_to_heap(item);
@@ -314,7 +323,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn pop_pop_push_push_pop_pop(mut counters: Counters) {
+    fn pop_pop_push_push_pop_pop(mut counters: Counters<usize>) {
         if let Some((item, priority)) = counters.pop() {
             counters.increase_priority(item, 5.0);
             if let Some((item2, priority2)) = counters.pop() {
@@ -328,7 +337,7 @@ mod tests {
     }
 
     #[quickcheck]
-    fn pop_pop_push_push_pop_pop2(mut counters: Counters) {
+    fn pop_pop_push_push_pop_pop2(mut counters: Counters<usize>) {
         if let Some((item, priority)) = counters.pop() {
             if let Some((item2, priority2)) = counters.pop() {
                 counters.increase_priority(item2, priority + 1.0);

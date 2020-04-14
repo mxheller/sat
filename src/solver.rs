@@ -10,7 +10,7 @@ pub struct Solver {
     decision_level: usize,
     num_variables: usize,
     formula: TrimmedFormula,
-    counters: Counters,
+    counters: Counters<Variable>,
     assignments: Assignments,
     history: History,
     watched: Watched,
@@ -52,7 +52,7 @@ impl Solver {
 
         let mut solver = Self {
             formula: TrimmedFormula::new(num_clauses),
-            counters: Counters::new(num_variables * 2),
+            counters: Counters::new(num_variables),
             assignments: Assignments::new(num_variables),
             history: History::new(num_variables),
             watched: Watched::new(num_variables),
@@ -186,7 +186,7 @@ impl Solver {
             0 => Ok(Status::Unsat),
             1 => {
                 let unit = clause.next().unwrap();
-                self.counters.bump(unit);
+                self.counters.bump(unit.var());
                 Ok(self.assign_invariant(unit))
             }
             _ => {

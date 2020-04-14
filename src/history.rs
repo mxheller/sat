@@ -36,13 +36,13 @@ impl History {
         &mut self,
         level: DecisionLevel,
         assignments: &mut Assignments,
-        counters: &mut Counters,
+        counters: &mut Counters<Variable>,
     ) {
         if level < self.decision_level_breaks.len() {
             let new_end = self.decision_level_breaks[level];
             for literal in self.assignments.drain(new_end..) {
                 assignments.remove(literal.var());
-                counters.add_to_heap(literal);
+                counters.add_to_heap(literal.var());
             }
             self.decision_level_breaks.truncate(level);
             self.next_to_propogate = std::cmp::min(self.next_to_propogate, new_end);
@@ -99,7 +99,7 @@ fn rewriting_history() {
 
     let mut history = History::new(6);
     let mut assignments = Assignments::new(6);
-    let mut counters = Counters::new(12);
+    let mut counters = Counters::new(6);
 
     let mut set = |history: &mut History, level, var| {
         let _ = assignments.set(var, Assignment::decided(Positive, level), history);

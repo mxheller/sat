@@ -15,6 +15,16 @@ impl From<bool> for Sign {
     }
 }
 
+impl Into<bool> for Sign {
+    #[inline]
+    fn into(self) -> bool {
+        match self {
+            Self::Positive => true,
+            Self::Negative => false,
+        }
+    }
+}
+
 impl std::fmt::Display for Sign {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", if self == &Sign::Negative { "-" } else { "" },)
