@@ -53,11 +53,6 @@ impl History {
         self.assignments.len() + self.invariants.len()
     }
 
-    pub fn assignments_to_propogate(&self) -> bool {
-        self.next_invariant_to_propogate < self.invariants.len()
-            || self.next_to_propogate < self.assignments.len()
-    }
-
     #[must_use]
     pub fn next_to_propogate(&mut self) -> Option<Literal> {
         self.invariants

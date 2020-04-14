@@ -19,6 +19,7 @@
 
 use crate::{Assignments, Literal, Variable};
 use ordered_float::OrderedFloat;
+use rand::{rngs::ThreadRng, Rng};
 use std::{marker::PhantomData, ops::Index};
 
 pub type Count = f64;
@@ -150,6 +151,23 @@ impl Counters<Variable> {
             Some(x) if assignments[x].is_some() => self.next_decision(assignments),
             Some(x) => Some(Literal::new(x, assignments.last_sign(x))),
             None => None,
+        }
+    }
+
+    pub fn random_decision(
+        &self,
+        rng: &mut ThreadRng,
+        assignments: &Assignments,
+    ) -> Option<Literal> {
+        let size = self.heap.len();
+        if size == 0 {
+            None
+        } else {
+            let mut var = self.heap[rng.gen_range(0, size)];
+            while assignments[var].is_some() {
+                var = self.heap[rng.gen_range(0, size)];
+            }
+            Some(Literal::new(var, rng.gen_bool(0.5)))
         }
     }
 }
