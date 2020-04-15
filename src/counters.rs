@@ -154,19 +154,22 @@ impl Counters<Variable> {
         }
     }
 
+    #[must_use]
     pub fn random_decision(
-        &self,
+        &mut self,
         rng: &mut ThreadRng,
         assignments: &Assignments,
     ) -> Option<Literal> {
         let size = self.heap.len();
         if size == 0 {
-            None
+            return None;
+        }
+
+        let var = self.heap[rng.gen_range(0, size)];
+        if assignments[var].is_some() {
+            self.remove_from_heap(var);
+            self.random_decision(rng, assignments)
         } else {
-            let mut var = self.heap[rng.gen_range(0, size)];
-            while assignments[var].is_some() {
-                var = self.heap[rng.gen_range(0, size)];
-            }
             Some(Literal::new(var, rng.gen_bool(0.5)))
         }
     }
@@ -180,17 +183,22 @@ where
     /// the priority counters and returns the pair (item index, priority),
     /// or None if the counters is empty.
     pub fn pop(&mut self) -> Option<(T, Count)> {
-        let popped = match self.heap.len() {
-            0 => None,
-            1 => self.swap_remove(),
-            _ => {
-                let r = self.swap_remove();
-                self.sift_down(0);
-                r
+        self.remove_idx(0)
+    }
+
+    pub fn remove_from_heap(&mut self, item: T) -> Option<(T, Count)> {
+        self.positions[item.into()].and_then(|idx| self.remove_idx(idx))
+    }
+
+    fn remove_idx(&mut self, idx: usize) -> Option<(T, Count)> {
+        self.swap_remove(idx).map(|removed| {
+            if self.heap.len() > idx {
+                self.bubble_up(idx);
+                self.sift_down(idx);
             }
-        };
-        debug_assert!(self.valid());
-        popped
+            debug_assert!(self.valid());
+            removed
+        })
     }
 
     pub fn add_to_heap(&mut self, item: T) {
@@ -235,18 +243,20 @@ where
         debug_assert!(self.valid());
     }
 
-    /// Remove and return the item with the max priority
-    /// and swap it with the last element keeping a consistent state.
-    fn swap_remove(&mut self) -> Option<(T, Count)> {
-        // Remove the head of the heap
-        let removed = self.heap.swap_remove(0);
+    /// Remove and return the item at idx and swap it with the last
+    fn swap_remove(&mut self, idx: usize) -> Option<(T, Count)> {
+        if idx < self.heap.len() {
+            let removed = self.heap.swap_remove(idx);
 
-        self.positions[removed] = None;
-        if self.heap.len() > 0 {
-            self.positions[self.heap[0]] = Some(0);
+            self.positions[removed] = None;
+            if let Some(replacement) = self.heap.get(idx) {
+                self.positions[*replacement] = Some(idx);
+            }
+            debug_assert!(self.valid_positions());
+            Some((removed.into(), self.priorities[removed].into()))
+        } else {
+            None
         }
-        debug_assert!(self.valid_positions());
-        Some((removed.into(), self.priorities[removed].into()))
     }
 }
 
