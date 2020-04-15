@@ -3,12 +3,12 @@
 mod assignments;
 mod conflict;
 mod counters;
+pub mod formula;
 mod history;
 mod literal;
 mod luby;
 mod sign;
 mod solver;
-pub mod trimmed_formula;
 mod watched;
 
 use assignments::{Assignment, Assignments};

@@ -1,5 +1,5 @@
 use crate::{
-    trimmed_formula::{clause, TrimmedFormula},
+    formula::{clause, Formula},
     Assignment, Assignments, ClauseIdx, Conflict, Counters, DecisionLevel, History, Literal, Luby,
     Sign, Variable, Watched,
 };
@@ -19,7 +19,7 @@ const RANDOM_VAR_FREQ: f64 = 0.02;
 pub struct Solver {
     decision_level: usize,
     num_variables: usize,
-    formula: TrimmedFormula,
+    formula: Formula,
     counters: Counters<Variable>,
     assignments: Assignments,
     history: History,
@@ -110,7 +110,7 @@ impl Solver {
         let mut luby = Luby::new();
 
         let mut solver = Self {
-            formula: TrimmedFormula::new(clauses.len()),
+            formula: Formula::new(clauses.len()),
             counters: Counters::new(num_variables),
             assignments: Assignments::new(num_variables),
             history: History::new(num_variables),
@@ -126,7 +126,7 @@ impl Solver {
             random_branch: Bernoulli::new(RANDOM_VAR_FREQ).unwrap(),
         };
 
-        // Add clauses to trimmed formula
+        // Add clauses to formula
         for clause in clauses {
             match solver.learn_clause(clause.into_iter())? {
                 Status::Ok => (),

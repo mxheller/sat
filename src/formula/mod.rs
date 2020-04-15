@@ -6,11 +6,11 @@ pub mod clause;
 pub use clause::{Clause, Status};
 
 /// A formula that contains no empty or unit clauses
-pub struct TrimmedFormula {
+pub struct Formula {
     clauses: Vec<Clause>,
 }
 
-impl TrimmedFormula {
+impl Formula {
     pub fn new(num_clauses: usize) -> Self {
         Self {
             clauses: Vec::with_capacity(num_clauses),
@@ -43,7 +43,7 @@ impl TrimmedFormula {
     }
 }
 
-impl Index<ClauseIdx> for TrimmedFormula {
+impl Index<ClauseIdx> for Formula {
     type Output = Clause;
 
     fn index(&self, idx: ClauseIdx) -> &Self::Output {
@@ -51,7 +51,7 @@ impl Index<ClauseIdx> for TrimmedFormula {
     }
 }
 
-impl IndexMut<ClauseIdx> for TrimmedFormula {
+impl IndexMut<ClauseIdx> for Formula {
     fn index_mut(&mut self, idx: ClauseIdx) -> &mut Self::Output {
         &mut self.clauses[idx]
     }
@@ -61,7 +61,7 @@ impl IndexMut<ClauseIdx> for TrimmedFormula {
 fn add_clause() -> Result<(), String> {
     use crate::sign::Sign::Positive;
 
-    let mut formula = TrimmedFormula::new(2);
+    let mut formula = Formula::new(2);
     let watched = &mut Watched::new(2);
     let counters = &mut Counters::new(4);
     let assignments = &mut Assignments::new(2);

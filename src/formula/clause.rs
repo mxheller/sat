@@ -19,7 +19,7 @@ impl Clause {
         mut literals: impl Iterator<Item = Literal> + ExactSizeIterator,
     ) -> Result<Self, String> {
         match literals.len() {
-            0 | 1 => Err("TrimmedFormula should only contain clauses with len > 1".to_string()),
+            0 | 1 => Err("Formula should only contain clauses with len > 1".to_string()),
             2 => Ok(Self::Binary {
                 a: literals.next().unwrap(),
                 b: literals.next().unwrap(),
