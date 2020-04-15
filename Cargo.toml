@@ -16,6 +16,12 @@ criterion = "^0.3"
 quickcheck = "^0.9"
 quickcheck_macros = "^0.9"
 
+[profile.release]
+lto = true
+
+[profile.bench]
+lto = true
+
 [[bench]]
 name = "dubois"
 harness = false
