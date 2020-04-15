@@ -9,16 +9,19 @@ edition = "2018"
 [dependencies]
 fixedbitset = "^0.2"
 ordered-float = "^1.0"
+rand = "^0.7"
 
 [dev-dependencies]
 criterion = "^0.3"
 quickcheck = "^0.9"
 quickcheck_macros = "^0.9"
-rand = "^0.7"
 
 [[bench]]
 name = "dubois"
 harness = false
 [[bench]]
 name = "bf0432-007"
+harness = false
+[[bench]]
+name = "fpga"
 harness = false

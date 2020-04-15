@@ -6,7 +6,7 @@ fn main() -> Result<(), String> {
     match std::env::args().collect::<Vec<_>>().as_slice() {
         [_, path] => {
             let start = Instant::now();
-            let solution = Formula::parse_and_solve_file(path)?;
+            let solution = Solver::parse_and_solve_file(path)?;
             print_solution(solution);
             println!("c solved in {}ms", start.elapsed().as_millis());
             Ok(())

@@ -5,19 +5,19 @@ use std::{
     io::{BufRead, BufReader},
 };
 
-pub fn bf0432(c: &mut Criterion) {
-    let lines = BufReader::new(File::open("inputs/bf0432-007.cnf").unwrap())
+pub fn fpga(c: &mut Criterion) {
+    let lines = BufReader::new(File::open("inputs/fpga.cnf").unwrap())
         .lines()
         .map(Result::unwrap)
         .collect::<Vec<_>>();
-    c.bench_function("bf0432-007 solve", |b| {
+    c.bench_function("fpga (sat) solve", |b| {
         b.iter(|| Solver::parse_and_solve(&lines).unwrap())
     });
 }
 
 criterion_group! {
     name = benches;
-    config = Criterion::default().sample_size(10);
-    targets = bf0432
+    config = Criterion::default().sample_size(50);
+    targets = fpga
 }
 criterion_main!(benches);

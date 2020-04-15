@@ -1,4 +1,4 @@
-use crate::{trimmed_formula::Clause, Assignments, DecisionLevel, Evaluate, Literal, Variable};
+use crate::{formula::Clause, Assignments, DecisionLevel, Evaluate, Literal, Variable};
 use fixedbitset::FixedBitSet;
 
 pub struct Conflict {

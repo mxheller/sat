@@ -1,4 +1,7 @@
-use crate::{solver::Status, DecisionLevel, History, Literal, Sign, Variable};
+use crate::{
+    solver::{ConflictType, Status},
+    Counters, DecisionLevel, History, Literal, Sign, Variable,
+};
 use fixedbitset::FixedBitSet;
 use std::ops::Index;
 
@@ -44,8 +47,11 @@ impl Assignments {
             }
             Some(existing) if existing.sign() != assignment.sign() => assignment
                 .antecedent()
-                .map(Status::ConflictClause)
-                .unwrap_or_else(|| Status::ConflictLiteral(Literal::new(var, assignment.sign()))),
+                .map(ConflictType::Clause)
+                .map(Status::Conflict)
+                .unwrap_or_else(|| {
+                    Status::Conflict(ConflictType::Literal(Literal::new(var, assignment.sign())))
+                }),
             _ => Status::Ok,
         }
     }
@@ -59,8 +65,9 @@ impl Assignments {
         self.set(var, Assignment::decided(sign, 0), history)
     }
 
-    pub fn remove(&mut self, var: Variable) {
+    pub fn remove(&mut self, var: Variable, counters: &mut Counters<Variable>) {
         self.assignments[var] = None;
+        counters.add_to_heap(var);
     }
 
     pub fn assignments(self) -> impl Iterator<Item = (Variable, Sign)> {

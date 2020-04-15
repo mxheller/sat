@@ -3,20 +3,20 @@
 mod assignments;
 mod conflict;
 mod counters;
-mod formula;
+pub mod formula;
 mod history;
 mod literal;
+mod luby;
 mod sign;
 mod solver;
-pub mod trimmed_formula;
 mod watched;
 
 use assignments::{Assignment, Assignments};
 use conflict::Conflict;
 use counters::Counters;
-pub use formula::Formula;
 use history::History;
 use literal::Literal;
+use luby::Luby;
 pub use sign::Sign;
 pub use solver::{Solution, Solver};
 use watched::Watched;

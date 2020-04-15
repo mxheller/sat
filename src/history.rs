@@ -41,8 +41,7 @@ impl History {
         if level < self.decision_level_breaks.len() {
             let new_end = self.decision_level_breaks[level];
             for literal in self.assignments.drain(new_end..) {
-                assignments.remove(literal.var());
-                counters.add_to_heap(literal.var());
+                assignments.remove(literal.var(), counters);
             }
             self.decision_level_breaks.truncate(level);
             self.next_to_propogate = std::cmp::min(self.next_to_propogate, new_end);
@@ -51,11 +50,6 @@ impl History {
 
     pub fn num_assigned(&self) -> usize {
         self.assignments.len() + self.invariants.len()
-    }
-
-    pub fn assignments_to_propogate(&self) -> bool {
-        self.next_invariant_to_propogate < self.invariants.len()
-            || self.next_to_propogate < self.assignments.len()
     }
 
     #[must_use]
@@ -97,27 +91,23 @@ impl History {
 fn rewriting_history() {
     use crate::{Assignment, Counters, Sign::Positive};
 
-    let mut history = History::new(6);
+    let history = &mut History::new(6);
     let mut assignments = Assignments::new(6);
-    let mut counters = Counters::new(6);
-
-    let mut set = |history: &mut History, level, var| {
-        let _ = assignments.set(var, Assignment::decided(Positive, level), history);
-    };
+    let counters = &mut Counters::new(6);
 
     // Decision level 0
-    set(&mut history, 0, 0);
+    let _ = assignments.set(0, Assignment::decided(Positive, 0), history);
 
     // Decision level 1
     history.new_decision_level();
-    set(&mut history, 1, 1);
-    set(&mut history, 1, 2);
+    let _ = assignments.set(1, Assignment::decided(Positive, 1), history);
+    let _ = assignments.set(2, Assignment::decided(Positive, 1), history);
 
     // Decision level 2
     history.new_decision_level();
-    set(&mut history, 2, 3);
-    let _ = assignments.set(4, Assignment::implied(Positive, 0, 2), &mut history);
-    let _ = assignments.set(5, Assignment::implied(Positive, 0, 2), &mut history);
+    let _ = assignments.set(3, Assignment::decided(Positive, 2), history);
+    let _ = assignments.set(4, Assignment::implied(Positive, 0, 2), history);
+    let _ = assignments.set(5, Assignment::implied(Positive, 0, 2), history);
     assert_eq!(
         history
             .most_recently_implied_at_current_level()
@@ -146,7 +136,7 @@ fn rewriting_history() {
         assert_eq!(history.decision_level_breaks, vec![0]);
     }
 
-    history.revert_to(2, &mut assignments, &mut counters);
+    history.revert_to(2, &mut assignments, counters);
     assert_eq!(
         history.assignments,
         vec![
