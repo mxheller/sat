@@ -11,7 +11,7 @@ use rand::{
 use std::collections::BTreeMap;
 
 const UNIT_RUN: usize = 100;
-const RANDOM_BRANCH: f64 = 0.02;
+const RANDOM_VAR_FREQ: f64 = 0.02;
 
 pub struct Solver {
     decision_level: usize,
@@ -84,7 +84,7 @@ impl Solver {
             num_conflicts: 0,
             luby,
             rng: rand::thread_rng(),
-            random_branch: Bernoulli::new(RANDOM_BRANCH).unwrap(),
+            random_branch: Bernoulli::new(RANDOM_VAR_FREQ).unwrap(),
         };
 
         for mut clause in formula.clauses.into_iter() {
@@ -251,14 +251,18 @@ impl Solver {
 
     fn branch(&mut self) -> Result<(), String> {
         self.new_decision_level();
-        let choice = if self.random_branch.sample(&mut self.rng) {
-            self.counters
-                .random_decision(&mut self.rng, &self.assignments)
-        } else {
-            self.counters.next_decision(&self.assignments)
+        let mut var = None;
+        if self.random_branch.sample(&mut self.rng) {
+            var = self.counters.random_var(&mut self.rng);
         }
-        .ok_or_else(|| "No variable to branch on".to_owned())?;
-        match self.assign_decided(choice) {
+        while var.is_none() || self.assignments[var.unwrap()].is_some() {
+            var = self.counters.next_var();
+            if var.is_none() {
+                break;
+            }
+        }
+        let var = var.ok_or_else(|| "No variable to branch on".to_owned())?;
+        match self.assign_decided(Literal::new(var, self.assignments.last_sign(var))) {
             Status::Ok => Ok(()),
             _ => Err("Branched on already decided variable".to_owned()),
         }

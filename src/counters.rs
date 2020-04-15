@@ -17,7 +17,7 @@
  *
  */
 
-use crate::{Assignments, Literal, Variable};
+use crate::Variable;
 use ordered_float::OrderedFloat;
 use rand::{rngs::ThreadRng, Rng};
 use std::{marker::PhantomData, ops::Index};
@@ -146,31 +146,15 @@ impl<T> Counters<T> {
 
 impl Counters<Variable> {
     #[must_use]
-    pub fn next_decision(&mut self, assignments: &Assignments) -> Option<Literal> {
-        match self.pop().map(|(item, _)| item) {
-            Some(x) if assignments[x].is_some() => self.next_decision(assignments),
-            Some(x) => Some(Literal::new(x, assignments.last_sign(x))),
-            None => None,
-        }
+    pub fn next_var(&mut self) -> Option<Variable> {
+        self.pop().map(|(var, _)| var)
     }
 
-    #[must_use]
-    pub fn random_decision(
-        &mut self,
-        rng: &mut ThreadRng,
-        assignments: &Assignments,
-    ) -> Option<Literal> {
-        let size = self.heap.len();
-        if size == 0 {
-            return None;
-        }
-
-        let var = self.heap[rng.gen_range(0, size)];
-        if assignments[var].is_some() {
-            self.remove_from_heap(var);
-            self.random_decision(rng, assignments)
+    pub fn random_var(&self, rng: &mut ThreadRng) -> Option<Variable> {
+        if !self.heap.is_empty() {
+            Some(self.heap[rng.gen_range(0, self.heap.len())])
         } else {
-            Some(Literal::new(var, rng.gen_bool(0.5)))
+            None
         }
     }
 }
