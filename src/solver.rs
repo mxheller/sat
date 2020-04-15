@@ -277,17 +277,21 @@ impl Solver {
 
     fn branch(&mut self) -> Result<(), String> {
         self.new_decision_level();
-        let mut var = None;
-        if self.random_branch.sample(&mut self.rng) {
-            var = self.counters.random_var(&mut self.rng);
+        let err = || "No variable to branch on".to_owned();
+
+        // Get an initial choice, possibly randomly
+        let mut var = if self.random_branch.sample(&mut self.rng) {
+            self.counters.random_var(&mut self.rng)
+        } else {
+            self.counters.next_var()
         }
-        while var.is_none() || self.assignments[var.unwrap()].is_some() {
-            var = self.counters.next_var();
-            if var.is_none() {
-                break;
-            }
+        .ok_or_else(err)?;
+
+        // Get new choices until one is not already assigned
+        while self.assignments[var].is_some() {
+            var = self.counters.next_var().ok_or_else(err)?;
         }
-        let var = var.ok_or_else(|| "No variable to branch on".to_owned())?;
+
         match self.assign_decided(Literal::new(var, self.assignments.last_sign(var))) {
             Status::Ok => Ok(()),
             _ => Err("Branched on already decided variable".to_owned()),
