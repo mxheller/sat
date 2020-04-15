@@ -22,3 +22,6 @@ harness = false
 [[bench]]
 name = "bf0432-007"
 harness = false
+[[bench]]
+name = "fpga"
+harness = false
