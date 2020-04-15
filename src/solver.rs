@@ -1,5 +1,4 @@
 use crate::{
-    formula,
     trimmed_formula::{clause, TrimmedFormula},
     Assignment, Assignments, ClauseIdx, Conflict, Counters, DecisionLevel, History, Literal, Luby,
     Sign, Variable, Watched,
@@ -8,7 +7,11 @@ use rand::{
     distributions::{Bernoulli, Distribution},
     rngs::ThreadRng,
 };
-use std::collections::BTreeMap;
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+    path::Path,
+};
 
 const UNIT_RUN: usize = 100;
 const RANDOM_VAR_FREQ: f64 = 0.02;
@@ -51,33 +54,69 @@ pub enum ConflictType {
 }
 
 impl Solver {
-    pub fn solve_formula(
-        formula: impl Into<formula::Formula>,
+    pub fn parse_and_solve_file(
+        path: impl AsRef<Path>,
     ) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
-        let formula = formula.into();
+        let lines = File::open(path)
+            .map(|f| BufReader::new(f).lines().filter_map(Result::ok))
+            .map_err(|e| format!("{}", e))?;
 
-        // Create mapping from [0, numVars) -> Variable
-        let variables = formula.distinct_variables();
+        Self::parse_and_solve(lines)
+    }
 
-        // Create inverse mapping from Variable -> [0, numVars)
-        let map = variables
-            .iter()
-            .enumerate()
-            .map(|(idx, id)| (*id, idx as Variable))
-            .collect::<BTreeMap<Variable, Variable>>();
+    pub fn parse_and_solve(
+        lines: impl IntoIterator<Item = impl AsRef<str>>,
+    ) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
+        let mut lines = lines
+            .into_iter()
+            .skip_while(|l| l.as_ref().starts_with('c'));
+        let problem_line = lines.next().ok_or_else(|| "No problem line".to_owned())?;
+        let problem = problem_line.as_ref().split_whitespace().collect::<Vec<_>>();
 
-        let num_variables = variables.len();
-        let num_clauses = formula.clauses.len();
+        let clauses = lines.map(|l| {
+            l.as_ref()
+                .split_whitespace()
+                .filter(|x| *x != "0")
+                .map(|x| x.parse::<isize>().map(Literal::from))
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|e| format!("Invalid clause line: {}", e))
+        });
+
+        let (num_variables, num_clauses) = match problem.as_slice() {
+            ["p", "cnf", vars, clauses] => (
+                vars.parse().map_err(|e| format!("{}", e))?,
+                clauses.parse().map_err(|e| format!("{}", e))?,
+            ),
+            _ => Err("Invalid problem line".to_owned())?,
+        };
+
+        let mut parsed_clauses = Vec::with_capacity(num_clauses);
+        for clause in clauses {
+            parsed_clauses.push(clause?);
+        }
+
+        Self::solve_clauses(parsed_clauses, num_variables).map(|solution| match solution {
+            Solution::Unsat => Solution::Unsat,
+            Solution::Sat(assignments) => {
+                Solution::Sat(assignments.into_iter().map(|(var, sign)| (var + 1, sign)))
+            }
+        })
+    }
+
+    fn solve_clauses(
+        clauses: Vec<Vec<Literal>>,
+        num_variables: usize,
+    ) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
         let mut luby = Luby::new();
 
         let mut solver = Self {
-            formula: TrimmedFormula::new(num_clauses),
+            formula: TrimmedFormula::new(clauses.len()),
             counters: Counters::new(num_variables),
             assignments: Assignments::new(num_variables),
             history: History::new(num_variables),
             watched: Watched::new(num_variables),
             conflict: Conflict::new(num_variables),
-            pending_update: Vec::with_capacity(num_clauses),
+            pending_update: Vec::with_capacity(clauses.len()),
             decision_level: 0,
             num_variables,
             next_restart: luby.next() * UNIT_RUN,
@@ -87,28 +126,15 @@ impl Solver {
             random_branch: Bernoulli::new(RANDOM_VAR_FREQ).unwrap(),
         };
 
-        for mut clause in formula.clauses.into_iter() {
-            // Convert literals to new numbering
-            for literal in clause.iter_mut() {
-                *literal = Literal::new(map[&literal.var()], literal.sign());
-            }
-
-            // Add clause to trimmed formula
-            let literals: Vec<Literal> = clause.into();
-            match solver.learn_clause(literals.into_iter())? {
+        // Add clauses to trimmed formula
+        for clause in clauses {
+            match solver.learn_clause(clause.into_iter())? {
                 Status::Ok => (),
                 _ => return Ok(Solution::Unsat),
             }
         }
 
-        Ok(match solver.solve()? {
-            Solution::Unsat => Solution::Unsat,
-            Solution::Sat(assignments) => Solution::Sat(
-                assignments
-                    .into_iter()
-                    .map(move |(var, sign)| (variables[var as usize], sign)),
-            ),
-        })
+        solver.solve()
     }
 
     fn solve(mut self) -> Result<Solution<impl IntoIterator<Item = (Variable, Sign)>>, String> {
@@ -321,18 +347,11 @@ impl Solver {
 
 #[test]
 fn all_variables_assigned_after_propogating() -> Result<(), String> {
-    let formula: formula::Formula = vec![
-        vec![
-            Literal::new(0, Sign::Positive),
-            Literal::new(1, Sign::Positive),
-        ],
-        vec![
-            Literal::new(0, Sign::Negative),
-            Literal::new(1, Sign::Positive),
-        ],
-    ]
-    .into();
-    match formula.solve()? {
+    let clauses = vec![
+        vec![Literal::new(0, true), Literal::new(1, true)],
+        vec![Literal::new(0, false), Literal::new(1, true)],
+    ];
+    match Solver::solve_clauses(clauses, 2)? {
         Solution::Unsat => Err("Expected Sat, got Unsat".to_string()),
         Solution::Sat(assignment) => {
             let assignments = assignment.into_iter().collect::<Vec<_>>();
@@ -346,57 +365,54 @@ fn all_variables_assigned_after_propogating() -> Result<(), String> {
 }
 
 #[test]
-fn learning() -> Result<(), String> {
-    let formula: formula::Formula = vec![
-        vec![4, 2, -5],
-        vec![4, -6],
-        vec![5, 6, 7],
-        vec![-7, -8],
-        vec![1, -7, -9],
-        vec![8, 9],
-    ]
-    .into();
-    formula.solve().map(|_| ())
-}
-
-#[test]
 fn minimal_unsat() {
-    let formula: formula::Formula = vec![vec![5], vec![-5]].into();
-    assert!(matches!(formula.solve(), Ok(Solution::Unsat)));
+    let clauses = vec![vec![Literal::new(0, true)], vec![Literal::new(0, false)]];
+    assert!(matches!(
+        Solver::solve_clauses(clauses, 1),
+        Ok(Solution::Unsat)
+    ));
 }
 
 #[test]
 fn unsat() {
-    let formula: formula::Formula = vec![vec![1, 2], vec![1, -2], vec![-1, 2], vec![-1, -2]].into();
-    assert!(matches!(formula.solve(), Ok(Solution::Unsat)));
+    let clauses = vec![
+        vec![Literal::new(0, true), Literal::new(1, true)],
+        vec![Literal::new(0, true), Literal::new(1, false)],
+        vec![Literal::new(0, false), Literal::new(1, true)],
+        vec![Literal::new(0, false), Literal::new(1, false)],
+    ];
+    assert!(matches!(
+        Solver::solve_clauses(clauses, 2),
+        Ok(Solution::Unsat)
+    ));
 }
 
 #[test]
 fn zebra() {
-    let solution = formula::Formula::parse_and_solve_file("inputs/zebra.cnf");
+    let solution = Solver::parse_and_solve_file("inputs/zebra.cnf");
     assert!(matches!(solution, Ok(Solution::Sat(_))));
 }
 
 #[test]
 fn dubois() {
-    let solution = formula::Formula::parse_and_solve_file("inputs/dubois.cnf");
+    let solution = Solver::parse_and_solve_file("inputs/dubois.cnf");
     assert!(matches!(solution, Ok(Solution::Unsat)));
 }
 
 #[test]
 fn aim100() {
-    let solution = formula::Formula::parse_and_solve_file("inputs/aim-100.cnf");
+    let solution = Solver::parse_and_solve_file("inputs/aim-100.cnf");
     assert!(matches!(solution, Ok(Solution::Unsat)));
 }
 
 #[test]
 fn aim50() {
-    let solution = formula::Formula::parse_and_solve_file("inputs/aim-50.cnf");
+    let solution = Solver::parse_and_solve_file("inputs/aim-50.cnf");
     assert!(matches!(solution, Ok(Solution::Sat(_))));
 }
 
 #[test]
 fn bf() {
-    let solution = formula::Formula::parse_and_solve_file("inputs/bf0432-007.cnf");
+    let solution = Solver::parse_and_solve_file("inputs/bf0432-007.cnf");
     assert!(matches!(solution, Ok(Solution::Unsat)));
 }

@@ -3,7 +3,6 @@
 mod assignments;
 mod conflict;
 mod counters;
-mod formula;
 mod history;
 mod literal;
 mod luby;
@@ -15,7 +14,6 @@ mod watched;
 use assignments::{Assignment, Assignments};
 use conflict::Conflict;
 use counters::Counters;
-pub use formula::Formula;
 use history::History;
 use literal::Literal;
 use luby::Luby;

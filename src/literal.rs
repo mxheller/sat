@@ -56,7 +56,7 @@ impl std::ops::Not for Literal {
 impl From<isize> for Literal {
     fn from(x: isize) -> Self {
         assert_ne!(x, 0, "literals can only be parsed from non-zero inputs");
-        Self::new(x.abs() as Variable, x > 0)
+        Self::new((x.abs() - 1) as Variable, x > 0)
     }
 }
 

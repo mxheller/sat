@@ -11,7 +11,7 @@ pub fn bf0432(c: &mut Criterion) {
         .map(Result::unwrap)
         .collect::<Vec<_>>();
     c.bench_function("bf0432-007 solve", |b| {
-        b.iter(|| Formula::parse_and_solve(&lines).unwrap())
+        b.iter(|| Solver::parse_and_solve(&lines).unwrap())
     });
 }
 
